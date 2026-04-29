@@ -1,0 +1,26 @@
+=== WEEK 2 SUMMARY: AUTH, ONBOARDING & HOME DASHBOARD ===
+
+1. AUTHENTICATION FLOWS (2.1.1, 2.1.2)
+   - Phone OTP: Implemented full verification flow with resend logic.
+   - Google Sign-In: Enabled one-tap login for easy onboarding.
+   - Guest Mode (2.1.3): Allowed read-only browsing with restricted Give/Prayer tabs.
+   - Persistence (2.1.4): Handled via AuthContext for automatic logins.
+
+2. ONBOARDING & PROFILE (2.2.1, 2.2.2)
+   - Splash Screen: 2.5s animated welcome with premium church logo.
+   - Profile Setup: Captured Name, City, and Cell Groups from Firestore.
+   - Hardened Schema: Aligned all field names (name, phone, email) with requirements.
+
+3. HOME DASHBOARD UI (2.3.1 - 2.3.6)
+   - Header: Integrated circular logo and time-based greetings.
+   - Today's Promise: Card with Firestore sync and AsyncStorage OFFLINE CACHING.
+   - Quick Actions: Balanced 2x2 grid for key app interactions.
+   - Content: Upcoming Events card and Horizontal Announcements strip.
+   - Navigation: 5-tab Bottom Menu with active-state Navy theme.
+
+4. REAL-TIME SYNC & HARDENING
+   - Salesforce Sync (2.1.5): Auto-creation of Contact records on first login.
+   - NotifPrefs (2.2.3): Storing user notification preferences in Firestore.
+   - Bug Fixes: Resolved Axios and Navigation Nesting conflicts.
+
+=======================================================
