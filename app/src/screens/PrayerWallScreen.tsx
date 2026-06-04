@@ -217,7 +217,8 @@ export default function PrayerWallScreen({ navigation }: any) {
     
     setSubmittingReplyId(caseId);
     try {
-      await SalesforceService.addPrayerComment(caseId, comment);
+      const authorName = member?.name || user?.displayName || 'Member';
+      await SalesforceService.addPrayerComment(caseId, comment, authorName);
       setReplyInputs(prev => ({ ...prev, [caseId]: '' }));
       fetchPrayers(member?.id || undefined, true);
     } catch (err) {

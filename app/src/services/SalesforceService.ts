@@ -1143,12 +1143,14 @@ spfkUchVp71l4aWpCW50lro=
       });
 
       return result.records.map((rec: any) => {
-        const replies = rec.CaseComments?.records?.map((c: any) => ({
-          id: c.Id,
-          body: c.CommentBody,
-          date: c.CreatedDate,
-          author: c.CreatedBy?.Name || 'Pastor'
-        })) || [];
+        const replies = rec.CaseComments?.records?.map((c: any) => {
+          const rawBody: string = c.CommentBody || '';
+          // Extract embedded author prefix: "[Name]: body"
+          const prefixMatch = rawBody.match(/^\[(.+?)\]:\s*/);
+          const author = prefixMatch ? prefixMatch[1] : (c.CreatedBy?.Name || 'Member');
+          const body = prefixMatch ? rawBody.replace(prefixMatch[0], '') : rawBody;
+          return { id: c.Id, body, date: c.CreatedDate, author };
+        }) || [];
 
         return {
           id: rec.Id,
@@ -1190,13 +1192,15 @@ spfkUchVp71l4aWpCW50lro=
     } catch (error) { throw error; }
   }
 
-  async addPrayerComment(caseId: string, commentBody: string) {
+  async addPrayerComment(caseId: string, commentBody: string, authorName?: string) {
     try {
       const token = await this.getAccessToken();
+      // Prefix the author name so it can be extracted when displayed
+      const body = authorName ? `[${authorName}]: ${commentBody}` : commentBody;
       const resp = await fetch(`${this.instanceUrl}/services/data/v60.0/sobjects/CaseComment`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ParentId: caseId, CommentBody: commentBody })
+        body: JSON.stringify({ ParentId: caseId, CommentBody: body })
       });
       if (!resp.ok) throw new Error('Failed to add comment');
       return await resp.json();
