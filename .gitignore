@@ -16,7 +16,6 @@ functions/lib/
 # Sensitive keys & credentials - NEVER push these
 service-account-key.json
 KEYS_FOR_SALESFORCE/
-google-services.json
 GoogleService-Info.plist
 *.pem
 *.key

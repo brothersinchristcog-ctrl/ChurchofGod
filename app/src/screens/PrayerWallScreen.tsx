@@ -252,7 +252,7 @@ export default function PrayerWallScreen({ navigation }: any) {
   const renderPrayerItem = ({ item }: { item: PrayerRequest }) => {
     const isAnswered = item.isAnswered;
     const initial = item.name.charAt(0).toUpperCase();
-    const isOwner = user?.phoneNumber === item.phone;
+    const isOwner = !!(user?.phoneNumber && item.phone && user.phoneNumber === item.phone);
     
     return (
       <View style={[styles.prayerCard, isAnswered && styles.cardAnswered]}>

@@ -22,6 +22,14 @@
           }
         },
         {
+          "client_id": "610167013138-mgl29tsmhb3l7snk37k3eaqe6hbmo6qs.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.brothersinchrist.churchofgod",
+            "certificate_hash": "5e8f16062ea3cd2c4a0d547876baa6f38cabf625"
+          }
+        },
+        {
           "client_id": "610167013138-44leu198o42ms4q6eh9o8giemj15hltn.apps.googleusercontent.com",
           "client_type": 3
         }
