@@ -202,7 +202,7 @@ export default function AdminSongEditor() {
             />
           </View>
 
-          {/* Artist & Category Row */}
+          {/* Artist & Key Signature Row */}
           <View style={styles.row}>
             <View style={[styles.inputGroup, { flex: 1 }]}>
               <Text style={styles.label}>ARTIST / BAND · గాయకులు</Text>
@@ -219,10 +219,25 @@ export default function AdminSongEditor() {
 
             <View style={[styles.inputGroup, { width: 140 }]}>
               <Text style={styles.label}>CATEGORY</Text>
-              <TouchableOpacity style={styles.pickerBtn} onPress={() => setShowCategoryPicker(true)}>
+              <TouchableOpacity style={styles.pickerBtn} onPress={() => setShowCategoryPicker(!showCategoryPicker)}>
                 <Text style={styles.pickerTxt} numberOfLines={1}>{category}</Text>
                 <ChevronDown size={14} color="#64748b" />
               </TouchableOpacity>
+              {showCategoryPicker && (
+                <View style={styles.dropdown}>
+                  <ScrollView style={{ maxHeight: 150 }} nestedScrollEnabled>
+                    {CATEGORIES.map(c => (
+                      <TouchableOpacity 
+                        key={c} 
+                        style={styles.dropItem} 
+                        onPress={() => { setCategory(c); setShowCategoryPicker(false); }}
+                      >
+                        <Text style={styles.dropTxt}>{c}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </ScrollView>
+                </View>
+              )}
             </View>
           </View>
           
@@ -230,10 +245,25 @@ export default function AdminSongEditor() {
           <View style={styles.row}>
             <View style={[styles.inputGroup, { flex: 1 }]}>
               <Text style={styles.label}>KEY SIGNATURE</Text>
-              <TouchableOpacity style={styles.pickerBtn} onPress={() => setShowKeyPicker(true)}>
+              <TouchableOpacity style={styles.pickerBtn} onPress={() => setShowKeyPicker(!showKeyPicker)}>
                 <Text style={styles.pickerTxt}>{keySignature}</Text>
                 <ChevronDown size={14} color="#64748b" />
               </TouchableOpacity>
+              {showKeyPicker && (
+                <View style={styles.dropdown}>
+                  <ScrollView style={{ maxHeight: 150 }} nestedScrollEnabled>
+                    {KEYS.map(k => (
+                      <TouchableOpacity 
+                        key={k} 
+                        style={styles.dropItem} 
+                        onPress={() => { setKeySignature(k); setShowKeyPicker(false); }}
+                      >
+                        <Text style={styles.dropTxt}>{k}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </ScrollView>
+                </View>
+              )}
             </View>
           </View>
 
@@ -331,44 +361,6 @@ export default function AdminSongEditor() {
 
         <View style={{ height: 60 }} />
       </ScrollView>
-
-      {/* Category Picker Modal */}
-      {showCategoryPicker && (
-        <Modal transparent animationType="fade" visible={true} onRequestClose={() => setShowCategoryPicker(false)}>
-          <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={() => setShowCategoryPicker(false)}>
-            <View style={styles.pickerModalBox}>
-              <Text style={styles.pickerModalTitle}>Select Category</Text>
-              <ScrollView showsVerticalScrollIndicator={false}>
-                {CATEGORIES.map(c => (
-                  <TouchableOpacity key={c} style={styles.pickerModalItem} onPress={() => { setCategory(c); setShowCategoryPicker(false); }}>
-                    <Text style={[styles.pickerModalTxt, category === c && { color: '#c0392b', fontWeight: '800' }]}>{c}</Text>
-                    {category === c && <CheckCircle size={16} color="#c0392b" />}
-                  </TouchableOpacity>
-                ))}
-              </ScrollView>
-            </View>
-          </TouchableOpacity>
-        </Modal>
-      )}
-
-      {/* Key Signature Picker Modal */}
-      {showKeyPicker && (
-        <Modal transparent animationType="fade" visible={true} onRequestClose={() => setShowKeyPicker(false)}>
-          <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={() => setShowKeyPicker(false)}>
-            <View style={styles.pickerModalBox}>
-              <Text style={styles.pickerModalTitle}>Select Key Signature</Text>
-              <ScrollView showsVerticalScrollIndicator={false}>
-                {KEYS.map(k => (
-                  <TouchableOpacity key={k} style={styles.pickerModalItem} onPress={() => { setKeySignature(k); setShowKeyPicker(false); }}>
-                    <Text style={[styles.pickerModalTxt, keySignature === k && { color: '#c0392b', fontWeight: '800' }]}>{k}</Text>
-                    {keySignature === k && <CheckCircle size={16} color="#c0392b" />}
-                  </TouchableOpacity>
-                ))}
-              </ScrollView>
-            </View>
-          </TouchableOpacity>
-        </Modal>
-      )}
 
       {/* Premium Success Modal */}
       {showSuccess && (
@@ -582,12 +574,5 @@ const styles = StyleSheet.create({
   successSecTxt: { color: '#475569', fontSize: 13, fontWeight: '800' },
   receiptBox: { marginTop: 12, paddingTop: 12, borderTopWidth: 0.5, borderTopColor: '#cbd5e1' },
   receiptLbl: { fontSize: 8, fontWeight: '800', color: '#94a3b8', letterSpacing: 0.5, marginBottom: 4 },
-  receiptText: { fontSize: 11, color: '#64748b', marginTop: 2 },
-
-  // Picker Modal Styles
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(15, 23, 42, 0.6)', justifyContent: 'center', alignItems: 'center', padding: 20 },
-  pickerModalBox: { backgroundColor: '#fff', borderRadius: 16, width: '100%', maxWidth: 320, maxHeight: '60%', paddingVertical: 15, elevation: 10, shadowColor: '#000', shadowOpacity: 0.2, shadowRadius: 10 },
-  pickerModalTitle: { fontSize: 13, fontWeight: '800', color: '#64748b', paddingHorizontal: 20, paddingBottom: 15, borderBottomWidth: 1, borderBottomColor: '#f1f5f9', marginBottom: 5, letterSpacing: 0.5 },
-  pickerModalItem: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 14, paddingHorizontal: 20, borderBottomWidth: 1, borderBottomColor: '#f8fafc' },
-  pickerModalTxt: { fontSize: 15, color: '#1e293b', fontWeight: '600' }
+  receiptText: { fontSize: 11, color: '#64748b', marginTop: 2 }
 });
