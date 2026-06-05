@@ -148,9 +148,6 @@ export default function SongsScreen({ navigation }: any) {
             {item.titleTe ? `${item.titleTe} · ` : ''}{item.artist}
           </Text>
         </View>
-        <View style={styles.keyBadge}>
-          <Text style={styles.keyTxt}>KEY: {item.key || 'C'}</Text>
-        </View>
         {isSaved && <Bookmark size={14} color="#c0392b" style={{ marginRight: 4 }} />}
         <ChevronRight size={16} color={isDark ? '#475569' : '#D1D5DB'} />
       </TouchableOpacity>
@@ -292,7 +289,7 @@ export default function SongsScreen({ navigation }: any) {
                     {selectedSong.title}
                   </Text>
                   <Text style={styles.modalTitleTe}>
-                    {selectedSong.titleTe ? `${selectedSong.titleTe} · ` : ''}Key: {selectedSong.key || 'C'}
+                    {selectedSong.titleTe || ''}
                   </Text>
                   <Text style={styles.modalCategory}>{selectedSong.category || 'Other'}</Text>
                 </View>

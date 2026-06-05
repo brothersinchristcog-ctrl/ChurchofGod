@@ -27,7 +27,6 @@ import {
 
 const { width, height } = Dimensions.get('window');
 
-const KEYS = ['C', 'C# / Db', 'D', 'D# / Eb', 'E', 'F', 'F# / Gb', 'G', 'G# / Ab', 'A', 'A# / Bb', 'B'];
 const CATEGORIES = [
   'Stuthi Songs',
   'Aradhana Songs',
@@ -49,13 +48,11 @@ export default function AdminSongEditor() {
   const [titleEn, setTitleEn] = useState('');
   const [titleTe, setTitleTe] = useState('');
   const [artist, setArtist] = useState('COG Worship');
-  const [keySignature, setKeySignature] = useState('C');
   const [lyrics, setLyrics] = useState('');
   const [status, setStatus] = useState('Published');
   const [category, setCategory] = useState('Stuthi Songs');
   const [youtubeId, setYoutubeId] = useState('');
 
-  const [showKeyPicker, setShowKeyPicker] = useState(false);
   const [showCategoryPicker, setShowCategoryPicker] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
   const [syncReceipt, setSyncReceipt] = useState({ savedTo: '', id: '' });
@@ -75,7 +72,6 @@ export default function AdminSongEditor() {
   const [editYoutubeId, setEditYoutubeId] = useState('');
   const [editStatus, setEditStatus] = useState('Published');
   const [savingEdit, setSavingEdit] = useState(false);
-  const [showEditKeyPicker, setShowEditKeyPicker] = useState(false);
   const [showEditCategoryPicker, setShowEditCategoryPicker] = useState(false);
 
   const fetchPostedSongs = async () => {
@@ -110,7 +106,6 @@ export default function AdminSongEditor() {
         titleEn: titleEn.trim(),
         titleTe: titleTe.trim(),
         artist: artist.trim(),
-        keySignature,
         lyrics: lyrics.trim(),
         status,
         category,
@@ -122,7 +117,7 @@ export default function AdminSongEditor() {
       try {
         await addDoc(collection(db, 'worshipSongs'), {
           title: titleEn.trim(), titleTe: titleTe.trim(), artist: artist.trim(),
-          key: keySignature, lyrics: lyrics.trim(), status, category,
+          lyrics: lyrics.trim(), status, category,
           youtubeId: youtubeId.trim(), createdAt: serverTimestamp()
         });
       } catch { /* rules may block — OK */ }
@@ -147,8 +142,7 @@ export default function AdminSongEditor() {
 
   const resetForm = () => {
     setTitleEn(''); setTitleTe(''); setLyrics(''); setYoutubeId('');
-    setArtist('COG Worship'); setKeySignature('C');
-    setCategory('Stuthi Songs'); setStatus('Published');
+    setArtist('COG Worship'); setCategory('Stuthi Songs'); setStatus('Published');
   };
 
   // ── OPEN EDIT MODAL ──────────────────────────────
@@ -157,7 +151,6 @@ export default function AdminSongEditor() {
     setEditTitle(song.title);
     setEditTitleTe(song.titleTe || '');
     setEditArtist(song.artist || 'COG Worship');
-    setEditKey(song.key || 'C');
     setEditLyrics(song.lyrics || '');
     setEditCategory(song.category || 'Stuthi Songs');
     setEditYoutubeId(song.youtubeId || '');
@@ -173,7 +166,6 @@ export default function AdminSongEditor() {
         titleEn: editTitle.trim(),
         titleTe: editTitleTe.trim(),
         artist: editArtist.trim(),
-        keySignature: editKey,
         lyrics: editLyrics.trim(),
         category: editCategory,
         status: editStatus,
@@ -198,7 +190,7 @@ export default function AdminSongEditor() {
       <View style={{ flex: 1 }}>
         <Text style={styles.songItemTitle} numberOfLines={1}>{index + 1}. {item.title}</Text>
         <Text style={styles.songItemSub} numberOfLines={1}>
-          {item.category || 'Other'} · Key: {item.key}
+          {item.category || 'Other'}
         </Text>
       </View>
       <TouchableOpacity style={styles.editBtn} onPress={() => openEdit(item)}>
@@ -246,14 +238,6 @@ export default function AdminSongEditor() {
               <ChevronDown size={14} color="#64748b" />
             </TouchableOpacity>
           </View>
-        </View>
-
-        <View style={[styles.inputGroup, { width: 160 }]}>
-          <Text style={styles.label}>KEY SIGNATURE</Text>
-          <TouchableOpacity style={styles.pickerBtn} onPress={() => setShowKeyPicker(true)}>
-            <Text style={styles.pickerTxt}>{keySignature}</Text>
-            <ChevronDown size={14} color="#64748b" />
-          </TouchableOpacity>
         </View>
 
         <View style={styles.inputGroup}>
@@ -385,26 +369,6 @@ export default function AdminSongEditor() {
         </Modal>
       )}
 
-      {/* ── Key Picker Modal ── */}
-      {showKeyPicker && (
-        <Modal transparent animationType="fade" visible onRequestClose={() => setShowKeyPicker(false)}>
-          <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={() => setShowKeyPicker(false)}>
-            <View style={styles.pickerModalBox}>
-              <Text style={styles.pickerModalTitle}>Select Key Signature</Text>
-              <ScrollView showsVerticalScrollIndicator={false}>
-                {KEYS.map(k => (
-                  <TouchableOpacity key={k} style={styles.pickerModalItem}
-                    onPress={() => { setKeySignature(k); setShowKeyPicker(false); }}>
-                    <Text style={[styles.pickerModalTxt, keySignature === k && { color: '#c0392b', fontWeight: '800' }]}>{k}</Text>
-                    {keySignature === k && <CheckCircle size={16} color="#c0392b" />}
-                  </TouchableOpacity>
-                ))}
-              </ScrollView>
-            </View>
-          </TouchableOpacity>
-        </Modal>
-      )}
-
       {/* ── Edit Song Modal ── */}
       {editingSong && (
         <Modal transparent animationType="slide" visible onRequestClose={() => setEditingSong(null)}>
@@ -431,8 +395,7 @@ export default function AdminSongEditor() {
                   <TextInput style={[styles.textInput, { marginBottom: 14 }]} value={editArtist}
                     onChangeText={setEditArtist} placeholder="COG Worship..." placeholderTextColor="#94a3b8" />
 
-                  <View style={styles.row}>
-                    <View style={{ flex: 1 }}>
+                  <View style={{ flex: 1 }}>
                       <Text style={styles.label}>CATEGORY</Text>
                       <TouchableOpacity style={[styles.pickerBtn, { marginBottom: 14 }]}
                         onPress={() => setShowEditCategoryPicker(true)}>
@@ -440,16 +403,6 @@ export default function AdminSongEditor() {
                         <ChevronDown size={14} color="#64748b" />
                       </TouchableOpacity>
                     </View>
-                    <View style={{ width: 10 }} />
-                    <View style={{ width: 120 }}>
-                      <Text style={styles.label}>KEY</Text>
-                      <TouchableOpacity style={[styles.pickerBtn, { marginBottom: 14 }]}
-                        onPress={() => setShowEditKeyPicker(true)}>
-                        <Text style={styles.pickerTxt}>{editKey}</Text>
-                        <ChevronDown size={14} color="#64748b" />
-                      </TouchableOpacity>
-                    </View>
-                  </View>
 
                   <Text style={styles.label}>YOUTUBE ID / LINK</Text>
                   <TextInput style={[styles.textInput, { marginBottom: 14 }]} value={editYoutubeId}
