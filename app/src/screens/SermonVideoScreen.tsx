@@ -28,7 +28,7 @@ import SalesforceService, { SalesforceVideo } from '../services/SalesforceServic
 
 const { width } = Dimensions.get('window');
 
-export default function DailyVideoScreen({ navigation, route }: any) {
+export default function SermonVideoScreen({ navigation, route }: any) {
   const [videos, setVideos] = useState<SalesforceVideo[]>([]);
   const [loading, setLoading] = useState(true);
   const [playing, setPlaying] = useState(false);
@@ -37,12 +37,12 @@ export default function DailyVideoScreen({ navigation, route }: any) {
   // Initial load from params or fetch
   useEffect(() => {
     const init = async () => {
-      const promiseData = await SalesforceService.getDailyPromisesArchive(30);
+      const promiseData = await SalesforceService.getSermons(50);
       const data: SalesforceVideo[] = promiseData
-        .filter(p => p.youtubeId)
+        .filter(p => p.youtubeId && p.youtubeId !== 'mock')
         .map(p => ({
           id: p.id,
-          title: p.videoTitle || "Today's Devotional",
+          title: p.title || 'Sermon',
           youtubeId: p.youtubeId,
           date: p.date,
           duration: p.duration || '',
@@ -62,7 +62,7 @@ export default function DailyVideoScreen({ navigation, route }: any) {
           // If not in archive, create a direct video object using passed params
           setActiveVideo({
             id: 'direct-' + paramId,
-            title: paramTitle || 'Today\'s Devotional',
+            title: paramTitle || 'Sermon',
             youtubeId: paramId,
             date: 'Today',
             duration: '',
@@ -115,8 +115,8 @@ export default function DailyVideoScreen({ navigation, route }: any) {
           <Text style={styles.backBtnTxt}>Back</Text>
         </TouchableOpacity>
         <View style={styles.titleCol}>
-          <Text style={styles.pageTitle}>Video Devotional</Text>
-          <Text style={styles.pageSub}>ప్రార్థన సందేశం</Text>
+          <Text style={styles.pageTitle}>Sermon Video</Text>
+          <Text style={styles.pageSub}>ప్రసంగం</Text>
         </View>
         <View style={{ width: 60 }} />
       </View>
@@ -165,7 +165,7 @@ export default function DailyVideoScreen({ navigation, route }: any) {
         </View>
 
         {/* ── Archive ── */}
-        <Text style={styles.secLbl}>PAST PROMISES</Text>
+        <Text style={styles.secLbl}>PAST SERMONS</Text>
         <View style={styles.archiveList}>
           {videos.filter(v => v.id !== activeVideo?.id).map((video) => (
             <TouchableOpacity 

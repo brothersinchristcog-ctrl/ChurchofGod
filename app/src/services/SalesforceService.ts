@@ -63,6 +63,7 @@ export interface WorshipSong {
   lyrics?: string;
   category?: string;
   youtubeId?: string;
+  isThemeSong?: boolean;
 }
 
 export interface ScheduleEvent {
@@ -504,14 +505,14 @@ spfkUchVp71l4aWpCW50lro=
   async getSermons(limit = 50): Promise<any[]> {
     try {
       // High-Fidelity Query: Try all new fields first (Silent)
-      let soql = `SELECT Id, Name, Title_Telugu__c, Pastor_Name__c, Sermon_Date__c, YouTube_ID__c, Status__c, Duration__c, View_Count__c, Scripture_Reference__c FROM Sermon__c ORDER BY CreatedDate DESC LIMIT ${limit}`;
+      let soql = `SELECT Id, Name, Title_Telugu__c, Pastor_Name__c, Sermon_Date__c, YouTube_ID__c, Status__c, Duration__c, View_Count__c, Scripture_Reference__c, Category__c FROM Sermon__c ORDER BY CreatedDate DESC LIMIT ${limit}`;
       let result;
       try {
         result = await this.query(soql, true);
       } catch (e) {
         console.warn('⚠️ [SalesforceService] New fields missing, using legacy fallback.');
-        // Fallback Query: Only base fields
-        soql = `SELECT Id, Name, Title_Telugu__c, Pastor_Name__c, Sermon_Date__c, YouTube_ID__c, Status__c FROM Sermon__c ORDER BY CreatedDate DESC LIMIT ${limit}`;
+        // Fallback Query: Only base fields + Category__c
+        soql = `SELECT Id, Name, Title_Telugu__c, Pastor_Name__c, Sermon_Date__c, YouTube_ID__c, Status__c, Category__c FROM Sermon__c ORDER BY CreatedDate DESC LIMIT ${limit}`;
         result = await this.query(soql);
       }
 
@@ -525,7 +526,12 @@ spfkUchVp71l4aWpCW50lro=
         status: rec.Status__c,
         duration: rec.Duration__c || 'N/A',
         viewCount: rec.View_Count__c || 0,
-        scripture: rec.Scripture_Reference__c || ''
+        scripture: rec.Scripture_Reference__c || '',
+        categories: (() => {
+          const cats = rec.Category__c ? rec.Category__c.split(';').filter(Boolean) : [];
+          console.log(`Mapping ${rec.Name} - Raw Category__c: "${rec.Category__c}" -> Array:`, cats);
+          return cats;
+        })()
       }));
     } catch (error) {
       console.error('❌ [SalesforceService] getSermons Critical Failure:', error);
@@ -674,6 +680,29 @@ spfkUchVp71l4aWpCW50lro=
       return { success: true };
     } catch (error) {
       console.error('❌ [SalesforceService] updateWorshipSong Error:', error);
+      throw error;
+    }
+  }
+
+  async deleteWorshipSong(id: string): Promise<{ success: boolean }> {
+    try {
+      const token = await this.getAccessToken();
+      const url = `${this.instanceUrl}/services/data/v60.0/sobjects/Worship_Song__c/${id}`;
+      
+      const resp = await fetch(url, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` }
+      });
+
+      if (!resp.ok) {
+        const errData = await resp.json().catch(() => ([{ message: 'Unknown error' }]));
+        throw new Error(errData[0]?.message || 'Song deletion failed');
+      }
+      
+      console.log('✅ [SalesforceService] Song deleted successfully!');
+      return { success: true };
+    } catch (error) {
+      console.error('❌ [SalesforceService] deleteWorshipSong Error:', error);
       throw error;
     }
   }
@@ -1467,7 +1496,8 @@ spfkUchVp71l4aWpCW50lro=
         YouTube_ID__c: details.youtubeId,
         Description__c: details.description,
         Scripture_Reference__c: details.scripture,
-        Status__c: details.status || 'Published'
+        Status__c: details.status || 'Published',
+        Category__c: details.categories || ''
       };
 
       let resp = await fetch(url, {
@@ -1506,6 +1536,31 @@ spfkUchVp71l4aWpCW50lro=
       console.log(`✅ [SalesforceService] Sermon ${isUpdate ? 'Updated' : 'Created'} Successfully.`);
     } catch (error) {
       console.error('❌ [SalesforceService] createSermon Critical Error:', error);
+      throw error;
+    }
+  }
+
+  async deleteSermon(id: string) {
+    try {
+      const token = await this.getAccessToken();
+      const url = `${this.instanceUrl}/services/data/v60.0/sobjects/Sermon__c/${id}`;
+
+      console.log(`🔗 [SalesforceService] DELETE to ${url}`);
+
+      const resp = await fetch(url, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` }
+      });
+
+      if (!resp.ok) {
+        const errData = await resp.json().catch(() => null);
+        console.error('❌ [SalesforceService] Delete Failed:', JSON.stringify(errData, null, 2));
+        throw new Error(errData?.[0]?.message || 'Failed to delete sermon');
+      }
+
+      console.log(`✅ [SalesforceService] Sermon Deleted Successfully.`);
+    } catch (error) {
+      console.error('❌ [SalesforceService] deleteSermon Critical Error:', error);
       throw error;
     }
   }

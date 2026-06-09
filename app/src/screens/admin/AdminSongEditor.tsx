@@ -15,7 +15,8 @@ import {
   Modal
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Music, Save, ChevronDown, CheckCircle, Pencil, X, List } from 'lucide-react-native';
+import { Music, Save, ChevronDown, CheckCircle, Pencil, X, List, Eye, Square, Trash2, Star } from 'lucide-react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { AdminTabContext } from '../../context/AdminTabContext';
 import SalesforceService, { WorshipSong } from '../../services/SalesforceService';
 import {
@@ -34,14 +35,26 @@ const CATEGORIES = [
   'Christmas Songs',
   'Easter Songs',
   'Youth Songs',
-  'Other'
+  'Gospel Songs',
+  'Marriage Songs',
+  'Thanksgiving Songs',
+  'Special Songs',
+  'Other',
+  'Theme Songs'
+];
+
+const SONGBOOK_KEY = 'cog_my_songbook_ids';
+
+const KEYS = [
+  'C', 'C#', 'D', 'Eb', 'E', 'F', 'F#', 'G', 'Ab', 'A', 'Bb', 'B',
+  'Cm', 'C#m', 'Dm', 'Ebm', 'Em', 'Fm', 'F#m', 'Gm', 'Abm', 'Am', 'Bbm', 'Bm'
 ];
 
 export default function AdminSongEditor() {
   const { setActiveTab } = useContext(AdminTabContext);
 
   // Screen-level tab
-  const [screenTab, setScreenTab] = useState<'post' | 'list'>('post');
+  const [screenTab, setScreenTab] = useState<'post' | 'list' | 'member'>('post');
   const [submitting, setSubmitting] = useState(false);
 
   // ── POST SONG FORM ──────────────────────────────
@@ -50,16 +63,23 @@ export default function AdminSongEditor() {
   const [artist, setArtist] = useState('COG Worship');
   const [lyrics, setLyrics] = useState('');
   const [status, setStatus] = useState('Published');
-  const [category, setCategory] = useState('Stuthi Songs');
+  const [categories, setCategories] = useState<string[]>(['Stuthi Songs']);
   const [youtubeId, setYoutubeId] = useState('');
 
   const [showCategoryPicker, setShowCategoryPicker] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
   const [syncReceipt, setSyncReceipt] = useState({ savedTo: '', id: '' });
 
+  // ── MEMBER VIEW STATE ────────────────────────────
+  const [memberSongs, setMemberSongs] = useState<WorshipSong[]>([]);
+  const [memberSearch, setMemberSearch] = useState('');
+  const [memberTab, setMemberTab] = useState<'browse' | 'theme'>('browse');
+  const [savedIds, setSavedIds] = useState<string[]>([]);
+
   // ── POSTED SONGS LIST ───────────────────────────
   const [postedSongs, setPostedSongs] = useState<WorshipSong[]>([]);
   const [loadingList, setLoadingList] = useState(false);
+  const [listSearchQuery, setListSearchQuery] = useState('');
 
   // ── EDIT MODAL ──────────────────────────────────
   const [editingSong, setEditingSong] = useState<WorshipSong | null>(null);
@@ -68,11 +88,12 @@ export default function AdminSongEditor() {
   const [editArtist, setEditArtist] = useState('');
   const [editKey, setEditKey] = useState('C');
   const [editLyrics, setEditLyrics] = useState('');
-  const [editCategory, setEditCategory] = useState('Stuthi Songs');
+  const [editCategories, setEditCategories] = useState<string[]>(['Stuthi Songs']);
   const [editYoutubeId, setEditYoutubeId] = useState('');
   const [editStatus, setEditStatus] = useState('Published');
   const [savingEdit, setSavingEdit] = useState(false);
   const [showEditCategoryPicker, setShowEditCategoryPicker] = useState(false);
+  const [showEditKeyPicker, setShowEditKeyPicker] = useState(false);
 
   const fetchPostedSongs = async () => {
     setLoadingList(true);
@@ -88,7 +109,19 @@ export default function AdminSongEditor() {
 
   useEffect(() => {
     if (screenTab === 'list') fetchPostedSongs();
+    if (screenTab === 'member') fetchMemberSongs();
   }, [screenTab]);
+
+  const fetchMemberSongs = async () => {
+    try {
+      const data = await SalesforceService.getWorshipSongs();
+      setMemberSongs(data);
+      const stored = await AsyncStorage.getItem(SONGBOOK_KEY);
+      if (stored) setSavedIds(JSON.parse(stored));
+    } catch (err) {
+      console.error(err);
+    }
+  };
 
   // ── PUBLISH NEW SONG ─────────────────────────────
   const handlePublishSong = async () => {
@@ -102,13 +135,14 @@ export default function AdminSongEditor() {
     }
     setSubmitting(true);
     try {
+      const primaryCategory = categories.join(';') || 'Other';
       const receipt = await SalesforceService.createWorshipSong({
         titleEn: titleEn.trim(),
         titleTe: titleTe.trim(),
         artist: artist.trim(),
         lyrics: lyrics.trim(),
         status,
-        category,
+        category: primaryCategory,
         youtubeId: youtubeId.trim()
       });
       setSyncReceipt({ savedTo: receipt.savedTo, id: receipt.id });
@@ -117,7 +151,7 @@ export default function AdminSongEditor() {
       try {
         await addDoc(collection(db, 'worshipSongs'), {
           title: titleEn.trim(), titleTe: titleTe.trim(), artist: artist.trim(),
-          lyrics: lyrics.trim(), status, category,
+          lyrics: lyrics.trim(), status, category: primaryCategory,
           youtubeId: youtubeId.trim(), createdAt: serverTimestamp()
         });
       } catch { /* rules may block — OK */ }
@@ -125,7 +159,7 @@ export default function AdminSongEditor() {
       try {
         await addDoc(collection(db, 'broadcasts'), {
           title: `🎵 New Song: ${titleEn.trim()}`,
-          content: `A new worship song "${titleEn.trim()}" has been posted under ${category}!`,
+          content: `A new worship song "${titleEn.trim()}" has been posted under ${primaryCategory}!`,
           date: new Date().toISOString().split('T')[0],
           type: 'announcement',
           createdAt: serverTimestamp()
@@ -142,7 +176,7 @@ export default function AdminSongEditor() {
 
   const resetForm = () => {
     setTitleEn(''); setTitleTe(''); setLyrics(''); setYoutubeId('');
-    setArtist('COG Worship'); setCategory('Stuthi Songs'); setStatus('Published');
+    setArtist('COG Worship'); setCategories(['Stuthi Songs']); setStatus('Published');
   };
 
   // ── OPEN EDIT MODAL ──────────────────────────────
@@ -152,7 +186,10 @@ export default function AdminSongEditor() {
     setEditTitleTe(song.titleTe || '');
     setEditArtist(song.artist || 'COG Worship');
     setEditLyrics(song.lyrics || '');
-    setEditCategory(song.category || 'Stuthi Songs');
+    // Split semicolon-separated categories back into array
+    const cats = (song.category || 'Stuthi Songs')
+      .split(';').map(c => c.trim()).filter(Boolean);
+    setEditCategories(cats);
     setEditYoutubeId(song.youtubeId || '');
     setEditStatus('Published');
   };
@@ -162,12 +199,13 @@ export default function AdminSongEditor() {
     if (!editTitle.trim()) { Alert.alert('Required', 'Song title is required.'); return; }
     setSavingEdit(true);
     try {
+      const primaryEditCategory = editCategories.join(';') || 'Other';
       await SalesforceService.updateWorshipSong(editingSong.id, {
         titleEn: editTitle.trim(),
         titleTe: editTitleTe.trim(),
         artist: editArtist.trim(),
         lyrics: editLyrics.trim(),
-        category: editCategory,
+        category: primaryEditCategory,
         status: editStatus,
         youtubeId: editYoutubeId.trim()
       });
@@ -182,22 +220,222 @@ export default function AdminSongEditor() {
   };
 
   // ── RENDER POSTED SONG ITEM ──────────────────────
-  const renderSongItem = ({ item, index }: { item: WorshipSong; index: number }) => (
-    <View style={styles.songItem}>
-      <View style={styles.songIconBox}>
-        <Music size={16} color="#1a2d5a" />
+  const [adminSelectedSong, setAdminSelectedSong] = useState<WorshipSong | null>(null);
+
+  const handleDeleteSong = (id: string, title: string) => {
+    Alert.alert(
+      'Delete Song',
+      `Are you sure you want to delete "${title}"?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { 
+          text: 'Delete', 
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await SalesforceService.deleteWorshipSong(id);
+              fetchPostedSongs();
+              Alert.alert('Deleted', 'Song deleted successfully.');
+            } catch (e: any) {
+              Alert.alert('Error', e.message || 'Failed to delete song.');
+            }
+          }
+        }
+      ]
+    );
+  };
+
+  const handleToggleTheme = async (song: WorshipSong) => {
+    try {
+      const currentCats = (song.category || 'Stuthi Songs')
+        .split(';').map(c => c.trim()).filter(Boolean);
+      let newCats: string[];
+      if (currentCats.includes('Theme Songs')) {
+        // Remove Theme Songs; keep remaining categories (fallback to Stuthi Songs)
+        newCats = currentCats.filter(c => c !== 'Theme Songs');
+        if (newCats.length === 0) newCats = ['Stuthi Songs'];
+      } else {
+        // Add Theme Songs to existing categories
+        newCats = [...currentCats, 'Theme Songs'];
+      }
+      await SalesforceService.updateWorshipSong(song.id, { category: newCats.join(';') });
+      fetchPostedSongs();
+    } catch (e: any) {
+      Alert.alert('Error', 'Failed to toggle theme status.');
+    }
+  };
+
+  const renderSongItem = ({ item, index }: { item: WorshipSong; index: number }) => {
+    const isTheme = (item.category || '').split(';').map(c => c.trim()).includes('Theme Songs');
+    return (
+      <View style={styles.songItem}>
+        <View style={styles.songIconBox}>
+          <Music size={16} color="#1a2d5a" />
+        </View>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.songItemTitle} numberOfLines={1}>{index + 1}. {item.title}</Text>
+          <Text style={styles.songItemSub} numberOfLines={1}>
+            {item.category || 'Other'}
+          </Text>
+        </View>
+        <View style={{ flexDirection: 'row', gap: 10, alignItems: 'center' }}>
+          <TouchableOpacity 
+            onPress={() => handleToggleTheme(item)} 
+            style={{ 
+              paddingHorizontal: 10, paddingVertical: 5, borderRadius: 12, borderWidth: 1, 
+              borderColor: isTheme ? '#f59e0b' : '#e2e8f0', 
+              backgroundColor: isTheme ? '#fef3c7' : '#f8fafc',
+              flexDirection: 'row', alignItems: 'center', gap: 4 
+            }}>
+            <Star size={12} color={isTheme ? "#d97706" : "#94a3b8"} fill={isTheme ? "#f59e0b" : "none"} />
+            <Text style={{ fontSize: 10, fontWeight: '700', color: isTheme ? '#d97706' : '#64748b' }}>
+              {isTheme ? 'THEME SONG' : 'MAKE THEME'}
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => openEdit(item)} style={{ padding: 4 }}>
+            <Pencil size={15} color="#1a2d5a" />
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => handleDeleteSong(item.id, item.title)} style={{ padding: 4 }}>
+            <Trash2 size={16} color="#ef4444" />
+          </TouchableOpacity>
+        </View>
       </View>
-      <View style={{ flex: 1 }}>
-        <Text style={styles.songItemTitle} numberOfLines={1}>{index + 1}. {item.title}</Text>
-        <Text style={styles.songItemSub} numberOfLines={1}>
-          {item.category || 'Other'}
-        </Text>
+    );
+  };
+
+  // ── MEMBER VIEW UI ────────────────────────────────
+  const renderMemberView = () => {
+    const browseSongs = memberSongs.filter(s => {
+      if (s.category === 'Theme Songs') return false;
+      const q = memberSearch.toLowerCase().trim();
+      return !q || s.title.toLowerCase().includes(q) || (s.titleTe && s.titleTe.toLowerCase().includes(q));
+    });
+    const themeSongs = memberSongs.filter(s => {
+      if (s.category !== 'Theme Songs') return false;
+      const q = memberSearch.toLowerCase().trim();
+      return !q || s.title.toLowerCase().includes(q) || (s.titleTe && s.titleTe.toLowerCase().includes(q));
+    });
+    const displaySongs = memberTab === 'browse' ? browseSongs : themeSongs;
+
+    return (
+      <View style={{ flex: 1, backgroundColor: '#f8fafc' }}>
+        {/* Member View Header */}
+        <View style={{ backgroundColor: '#1a2d5a', paddingVertical: 10, paddingHorizontal: 16 }}>
+          <Text style={{ color: '#aac4e8', fontSize: 10, fontWeight: '700', textAlign: 'center' }}>
+            👁 ADMIN PREVIEW: Member Songs View
+          </Text>
+        </View>
+
+        {/* Tabs */}
+        <View style={{ flexDirection: 'row', backgroundColor: '#e2e8f0', margin: 16, borderRadius: 25, padding: 4, gap: 4 }}>
+          <TouchableOpacity
+            style={[{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 10, borderRadius: 21, gap: 6 },
+              memberTab === 'browse' && { backgroundColor: '#1a2d5a' }]}
+            onPress={() => setMemberTab('browse')}>
+            <Music size={13} color={memberTab === 'browse' ? '#fff' : '#64748b'} />
+            <Text style={{ fontSize: 12, fontWeight: '700', color: memberTab === 'browse' ? '#fff' : '#64748b' }}>Browse Songs</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 10, borderRadius: 21, gap: 6 },
+              memberTab === 'theme' && { backgroundColor: '#1a2d5a' }]}
+            onPress={() => setMemberTab('theme')}>
+            <Music size={13} color={memberTab === 'theme' ? '#fff' : '#64748b'} />
+            <Text style={{ fontSize: 12, fontWeight: '700', color: memberTab === 'theme' ? '#fff' : '#64748b' }}>Theme Songs</Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Search */}
+        <View style={{ flexDirection: 'row', alignItems: 'center', marginHorizontal: 16, marginBottom: 8,
+          borderRadius: 14, paddingHorizontal: 14, height: 44, backgroundColor: '#fff',
+          elevation: 2, shadowColor: '#000', shadowOpacity: 0.04, shadowRadius: 4, borderWidth: 1, borderColor: '#e2e8f0' }}>
+          <Music size={16} color="#64748b" />
+          <TextInput
+            placeholder={memberTab === 'browse' ? 'Search songs...' : 'Search theme songs...'}
+            placeholderTextColor="#94a3b8"
+            style={{ flex: 1, fontSize: 13, fontWeight: '600', marginLeft: 8, color: '#0f172a' }}
+            value={memberSearch}
+            onChangeText={setMemberSearch}
+          />
+        </View>
+
+        {/* Song List */}
+        <FlatList
+          data={displaySongs}
+          keyExtractor={item => item.id}
+          showsVerticalScrollIndicator={false}
+          refreshing={false}
+          onRefresh={fetchMemberSongs}
+          contentContainerStyle={{ paddingBottom: 40 }}
+          ListHeaderComponent={() => (
+            <Text style={{ fontSize: 10, fontWeight: '800', color: '#9CA3AF', letterSpacing: 0.8,
+              marginHorizontal: 16, marginBottom: 10, marginTop: 4 }}>
+              {memberTab === 'browse' ? 'ALL SONGS' : 'THEME SONGS'} · {displaySongs.length} Songs
+            </Text>
+          )}
+          renderItem={({ item, index }) => (
+            <TouchableOpacity
+              style={{ borderRadius: 14, borderWidth: 0.5, borderColor: '#e5e7eb', marginHorizontal: 16,
+                marginBottom: 9, flexDirection: 'row', alignItems: 'center', padding: 12, backgroundColor: '#fff',
+                elevation: 2, shadowColor: '#000', shadowOpacity: 0.03, shadowRadius: 3 }}
+              onPress={() => setAdminSelectedSong(item)}>
+              <View style={{ width: 34, height: 34, borderRadius: 10, justifyContent: 'center', alignItems: 'center',
+                marginRight: 12, backgroundColor: '#f3f4f6' }}>
+                <Text style={{ fontSize: 13, fontWeight: '800', color: '#1a2d5a' }}>{index + 1}</Text>
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={{ fontSize: 13, fontWeight: '700', color: '#111827' }} numberOfLines={1}>{item.title}</Text>
+                <Text style={{ fontSize: 11, marginTop: 2, fontWeight: '500', color: '#6B7280' }} numberOfLines={1}>
+                  {item.titleTe ? `${item.titleTe} · ` : ''}{item.artist}
+                </Text>
+              </View>
+              <Music size={14} color="#94a3b8" />
+            </TouchableOpacity>
+          )}
+          ListEmptyComponent={() => (
+            <View style={{ padding: 40, alignItems: 'center' }}>
+              <Music size={44} color="#cbd5e1" />
+              <Text style={{ fontSize: 15, fontWeight: '800', color: '#1a2d5a', marginTop: 12 }}>No Songs</Text>
+              <Text style={{ fontSize: 12, color: '#94a3b8', marginTop: 4 }}>
+                {memberTab === 'theme' ? 'Mark songs as "Is Theme Song" to show them here.' : 'No songs found.'}
+              </Text>
+            </View>
+          )}
+        />
+
+        {/* Song Lyrics Preview Modal */}
+        {adminSelectedSong && (
+          <Modal visible animationType="slide" transparent onRequestClose={() => setAdminSelectedSong(null)}>
+            <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' }}>
+              <View style={{ backgroundColor: '#fff', borderTopLeftRadius: 25, borderTopRightRadius: 25, height: '85%', padding: 20 }}>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start',
+                  borderBottomWidth: 0.5, borderColor: '#cbd5e1', paddingBottom: 14, marginBottom: 14 }}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ fontSize: 17, fontWeight: '900', color: '#0f172a' }} numberOfLines={2}>{adminSelectedSong.title}</Text>
+                    <Text style={{ fontSize: 11, color: '#94a3b8', marginTop: 3, fontWeight: '700' }}>{adminSelectedSong.titleTe || ''}</Text>
+                    <Text style={{ fontSize: 10, color: '#c0392b', fontWeight: '800', marginTop: 4 }}>{adminSelectedSong.category || 'Other'}</Text>
+                  </View>
+                  <TouchableOpacity
+                    style={{ width: 34, height: 34, borderRadius: 17, backgroundColor: '#f1f5f9', alignItems: 'center', justifyContent: 'center' }}
+                    onPress={() => setAdminSelectedSong(null)}>
+                    <X size={20} color="#475569" />
+                  </TouchableOpacity>
+                </View>
+                <ScrollView showsVerticalScrollIndicator={false}>
+                  <Text style={{ fontSize: 10, fontWeight: '900', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 10, color: '#1a2d5a' }}>LYRICS & SCRIPTS · సాహిత్యం</Text>
+                  <View style={{ borderRadius: 14, padding: 16, borderWidth: 0.5, borderColor: '#e2e8f0', backgroundColor: '#f8fafc' }}>
+                    <Text style={{ fontSize: 13, lineHeight: 23, fontWeight: '500', fontStyle: 'italic', color: '#334155' }}>
+                      {adminSelectedSong.lyrics || 'Lyrics are being updated by the administrator.'}
+                    </Text>
+                  </View>
+                  <View style={{ height: 60 }} />
+                </ScrollView>
+              </View>
+            </View>
+          </Modal>
+        )}
       </View>
-      <TouchableOpacity style={styles.editBtn} onPress={() => openEdit(item)}>
-        <Pencil size={15} color="#1a2d5a" />
-      </TouchableOpacity>
-    </View>
-  );
+    );
+  };
 
   // ── POST SONG FORM UI ────────────────────────────
   const renderPostForm = () => (
@@ -223,22 +461,44 @@ export default function AdminSongEditor() {
             placeholderTextColor="#94a3b8" value={youtubeId} onChangeText={setYoutubeId} />
         </View>
 
-        {/* Artist + Category Row */}
-        <View style={styles.row}>
-          <View style={[styles.inputGroup, { flex: 1 }]}>
-            <Text style={styles.label}>ARTIST / BAND</Text>
-            <TextInput style={styles.textInput} placeholder="COG Worship..."
-              placeholderTextColor="#94a3b8" value={artist} onChangeText={setArtist} />
-          </View>
-          <View style={{ width: 10 }} />
-          <View style={[styles.inputGroup, { width: 145 }]}>
-            <Text style={styles.label}>CATEGORY</Text>
-            <TouchableOpacity style={styles.pickerBtn} onPress={() => setShowCategoryPicker(true)}>
-              <Text style={styles.pickerTxt} numberOfLines={1}>{category}</Text>
-              <ChevronDown size={14} color="#64748b" />
-            </TouchableOpacity>
-          </View>
+        {/* Artist */}
+        <View style={styles.inputGroup}>
+          <Text style={styles.label}>ARTIST / BAND</Text>
+          <TextInput style={styles.textInput} placeholder="COG Worship..."
+            placeholderTextColor="#94a3b8" value={artist} onChangeText={setArtist} />
         </View>
+
+        {/* Categories Multi-select */}
+        <View style={styles.inputGroup}>
+          <Text style={styles.label}>CATEGORIES (tap to select multiple)</Text>
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 4 }}>
+            {CATEGORIES.map(cat => {
+              const isThemeCat = cat === 'Theme Songs';
+              const isSelected = categories.includes(cat);
+              return (
+                <TouchableOpacity
+                  key={cat}
+                  style={[{ paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20, borderWidth: 1.5,
+                    borderColor: isSelected ? (isThemeCat ? '#f59e0b' : '#1a2d5a') : '#e2e8f0',
+                    backgroundColor: isSelected ? (isThemeCat ? '#fef3c7' : '#1a2d5a') : '#f8fafc' }]}
+                  onPress={() => {
+                    setCategories(prev =>
+                      prev.includes(cat) ? prev.filter(c => c !== cat) : [...prev, cat]
+                    );
+                  }}
+                >
+                  <Text style={{ fontSize: 11, fontWeight: '700',
+                    color: isSelected ? (isThemeCat ? '#d97706' : '#fff') : '#64748b' }}>{cat}</Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+          <Text style={{ fontSize: 10, color: '#94a3b8', marginTop: 6, fontStyle: 'italic' }}>
+            ⭐ Select "Theme Songs" to make this song appear in the Member Theme Songs tab.
+          </Text>
+        </View>
+
+
 
         <View style={styles.inputGroup}>
           <Text style={styles.label}>SONG LYRICS & SCRIPTS · సాహిత్యం *</Text>
@@ -264,12 +524,6 @@ export default function AdminSongEditor() {
         </View>
       </View>
 
-      <View style={styles.infoBox}>
-        <CheckCircle size={16} color="#059669" />
-        <Text style={styles.infoText}>
-          This syncs a <Text style={{ fontWeight: '700' }}>Worship_Song__c</Text> record to Salesforce Production instantly!
-        </Text>
-      </View>
 
       <TouchableOpacity style={[styles.saveBtn, submitting && { backgroundColor: '#94a3b8' }]}
         onPress={handlePublishSong} disabled={submitting}>
@@ -291,18 +545,29 @@ export default function AdminSongEditor() {
         </View>
       ) : (
         <FlatList
-          data={postedSongs}
+          data={postedSongs.filter(s => s.title.toLowerCase().includes(listSearchQuery.toLowerCase()) || (s.titleTe && s.titleTe.toLowerCase().includes(listSearchQuery.toLowerCase())))}
           keyExtractor={(item) => item.id}
           renderItem={renderSongItem}
           contentContainerStyle={{ padding: 16, paddingBottom: 60 }}
           showsVerticalScrollIndicator={false}
           ListHeaderComponent={() => (
-            <View style={styles.listHeaderRow}>
-              <Text style={styles.listHeaderTitle}>All Posted Songs</Text>
-              <View style={styles.countBadge}>
-                <Text style={styles.countTxt}>{postedSongs.length} Songs</Text>
+            <>
+              <View style={styles.listHeaderRow}>
+                <Text style={styles.listHeaderTitle}>All Worship Songs</Text>
+                <View style={styles.countBadge}>
+                  <Text style={styles.countTxt}>{postedSongs.length} Total</Text>
+                </View>
               </View>
-            </View>
+              <View style={{ marginBottom: 16 }}>
+                <TextInput
+                  style={styles.textInput}
+                  placeholder="Search songs by title..."
+                  placeholderTextColor="#94a3b8"
+                  value={listSearchQuery}
+                  onChangeText={setListSearchQuery}
+                />
+              </View>
+            </>
           )}
           ListEmptyComponent={() => (
             <View style={{ padding: 40, alignItems: 'center' }}>
@@ -342,32 +607,20 @@ export default function AdminSongEditor() {
           style={[styles.screenTab, screenTab === 'list' && styles.screenTabActive]}
           onPress={() => setScreenTab('list')}>
           <List size={14} color={screenTab === 'list' ? '#fff' : '#64748b'} />
-          <Text style={[styles.screenTabTxt, screenTab === 'list' && styles.screenTabTxtActive]}>Posted Songs</Text>
+          <Text style={[styles.screenTabTxt, screenTab === 'list' && styles.screenTabTxtActive]}>All Songs</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.screenTab, screenTab === 'member' && styles.screenTabActive]}
+          onPress={() => setScreenTab('member')}>
+          <Eye size={14} color={screenTab === 'member' ? '#fff' : '#64748b'} />
+          <Text style={[styles.screenTabTxt, screenTab === 'member' && styles.screenTabTxtActive]}>Member View</Text>
         </TouchableOpacity>
       </View>
 
       {/* Content */}
-      {screenTab === 'post' ? renderPostForm() : renderPostedList()}
+      {screenTab === 'post' ? renderPostForm() : screenTab === 'list' ? renderPostedList() : renderMemberView()}
 
-      {/* ── Category Picker Modal ── */}
-      {showCategoryPicker && (
-        <Modal transparent animationType="fade" visible onRequestClose={() => setShowCategoryPicker(false)}>
-          <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={() => setShowCategoryPicker(false)}>
-            <View style={styles.pickerModalBox}>
-              <Text style={styles.pickerModalTitle}>Select Category</Text>
-              <ScrollView showsVerticalScrollIndicator={false}>
-                {CATEGORIES.map(c => (
-                  <TouchableOpacity key={c} style={styles.pickerModalItem}
-                    onPress={() => { setCategory(c); setShowCategoryPicker(false); }}>
-                    <Text style={[styles.pickerModalTxt, category === c && { color: '#c0392b', fontWeight: '800' }]}>{c}</Text>
-                    {category === c && <CheckCircle size={16} color="#c0392b" />}
-                  </TouchableOpacity>
-                ))}
-              </ScrollView>
-            </View>
-          </TouchableOpacity>
-        </Modal>
-      )}
+      {/* ── Category Picker Modal (kept but unused now – categories use inline chips) ── */}
 
       {/* ── Edit Song Modal ── */}
       {editingSong && (
@@ -395,14 +648,35 @@ export default function AdminSongEditor() {
                   <TextInput style={[styles.textInput, { marginBottom: 14 }]} value={editArtist}
                     onChangeText={setEditArtist} placeholder="COG Worship..." placeholderTextColor="#94a3b8" />
 
-                  <View style={{ flex: 1 }}>
-                      <Text style={styles.label}>CATEGORY</Text>
-                      <TouchableOpacity style={[styles.pickerBtn, { marginBottom: 14 }]}
-                        onPress={() => setShowEditCategoryPicker(true)}>
-                        <Text style={styles.pickerTxt} numberOfLines={1}>{editCategory}</Text>
-                        <ChevronDown size={14} color="#64748b" />
-                      </TouchableOpacity>
-                    </View>
+                  {/* Edit Categories multi-select */}
+                  <Text style={[styles.label, { marginBottom: 6 }]}>CATEGORIES (tap to toggle)</Text>
+                  <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 6 }}>
+                    {CATEGORIES.map(cat => {
+                      const isThemeCat = cat === 'Theme Songs';
+                      const isSelected = editCategories.includes(cat);
+                      return (
+                        <TouchableOpacity
+                          key={cat}
+                          style={[{ paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20, borderWidth: 1.5,
+                            borderColor: isSelected ? (isThemeCat ? '#f59e0b' : '#1a2d5a') : '#e2e8f0',
+                            backgroundColor: isSelected ? (isThemeCat ? '#fef3c7' : '#1a2d5a') : '#f8fafc' }]}
+                          onPress={() => {
+                            setEditCategories(prev =>
+                              prev.includes(cat) ? prev.filter(c => c !== cat) : [...prev, cat]
+                            );
+                          }}
+                        >
+                          <Text style={{ fontSize: 11, fontWeight: '700',
+                            color: isSelected ? (isThemeCat ? '#d97706' : '#fff') : '#64748b' }}>{cat}</Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+                  <Text style={{ fontSize: 10, color: '#94a3b8', marginBottom: 14, fontStyle: 'italic' }}>
+                    ⭐ Select "Theme Songs" to show this song in the Member Theme Songs tab.
+                  </Text>
+
+
 
                   <Text style={styles.label}>YOUTUBE ID / LINK</Text>
                   <TextInput style={[styles.textInput, { marginBottom: 14 }]} value={editYoutubeId}
@@ -428,26 +702,7 @@ export default function AdminSongEditor() {
             </View>
           </View>
 
-          {/* Edit Category Picker */}
-          {showEditCategoryPicker && (
-            <Modal transparent animationType="fade" visible onRequestClose={() => setShowEditCategoryPicker(false)}>
-              <TouchableOpacity style={styles.modalOverlay} activeOpacity={1}
-                onPress={() => setShowEditCategoryPicker(false)}>
-                <View style={styles.pickerModalBox}>
-                  <Text style={styles.pickerModalTitle}>Select Category</Text>
-                  <ScrollView>
-                    {CATEGORIES.map(c => (
-                      <TouchableOpacity key={c} style={styles.pickerModalItem}
-                        onPress={() => { setEditCategory(c); setShowEditCategoryPicker(false); }}>
-                        <Text style={[styles.pickerModalTxt, editCategory === c && { color: '#c0392b', fontWeight: '800' }]}>{c}</Text>
-                        {editCategory === c && <CheckCircle size={16} color="#c0392b" />}
-                      </TouchableOpacity>
-                    ))}
-                  </ScrollView>
-                </View>
-              </TouchableOpacity>
-            </Modal>
-          )}
+          {/* Edit Category Picker removed – using inline chips above */}
           {/* Edit Key Picker */}
           {showEditKeyPicker && (
             <Modal transparent animationType="fade" visible onRequestClose={() => setShowEditKeyPicker(false)}>
@@ -483,7 +738,7 @@ export default function AdminSongEditor() {
               </View>
               <Text style={styles.successTitle}>Publication Successful!</Text>
               <Text style={styles.successDesc}>
-                "{titleEn}" has been published under <Text style={{ fontWeight: '800', color: '#1a2d5a' }}>{category}</Text> and synced to Salesforce!
+                "{titleEn}" has been published under <Text style={{ fontWeight: '800', color: '#1a2d5a' }}>{categories[0] || 'Other'}</Text> and synced to Salesforce!
               </Text>
               <View style={styles.summaryBox}>
                 <Text style={styles.summaryLbl}>SALESFORCE RECEIPT</Text>

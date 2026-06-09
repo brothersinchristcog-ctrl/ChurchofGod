@@ -6,10 +6,13 @@ import {
   TouchableOpacity, 
   ScrollView, 
   StatusBar,
-  Dimensions
+  Dimensions,
+  Alert,
+  Modal
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { ChevronLeft, Share2, BookMarked, Settings, Search } from 'lucide-react-native';
+import { ChevronLeft, Share2, BookMarked, Settings, Search, CheckCircle2 } from 'lucide-react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useTheme } from '../context/ThemeContext';
 
 const { width } = Dimensions.get('window');
@@ -62,19 +65,45 @@ const ENGLISH_NAMES = [
 const LOCAL_TELUGU_BIBLE: any = require('../../assets/telugu_bible.json');
 
 export default function BibleReaderScreen({ route, navigation }: any) {
-  const { bookName, chapter, lang } = route.params;
+  const { bookName, chapter, lang, targetVerse } = route.params;
   const { isDark } = useTheme();
   const [verses, setVerses] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [showVerseOptionsModal, setShowVerseOptionsModal] = useState(false);
+  const [selectedVerseItem, setSelectedVerseItem] = useState<any>(null);
 
-  // Derive English name for display
+  // Multi-verse selection
+  const [selectionMode, setSelectionMode] = useState(false);
+  const [selectedVerses, setSelectedVerses] = useState<Set<number>>(new Set());
+  const [savedVerseCount, setSavedVerseCount] = useState(0);
+
+  const scrollViewRef = React.useRef<ScrollView>(null);
+  const [verseLayouts, setVerseLayouts] = useState<{ [key: number]: number }>({});
+
+  // Derive English name and total chapters
   const bookIndex = (BOOK_MAP[bookName] || 1) - 1;
   const englishBookName = ENGLISH_NAMES[bookIndex] || bookName;
+  const totalChapters = LOCAL_TELUGU_BIBLE?.Book?.[bookIndex]?.Chapter?.length || 150;
 
   React.useEffect(() => {
     fetchVerses();
+    setVerseLayouts({});
+    // Exit selection mode when chapter changes
+    setSelectionMode(false);
+    setSelectedVerses(new Set());
   }, [bookName, chapter, lang]);
+
+  React.useEffect(() => {
+    if (targetVerse && verseLayouts[targetVerse] !== undefined) {
+      scrollViewRef.current?.scrollTo({
+        y: Math.max(0, verseLayouts[targetVerse] - 20),
+        animated: true
+      });
+    }
+  }, [targetVerse, verseLayouts]);
 
   const fetchVerses = async () => {
     try {
@@ -149,6 +178,112 @@ export default function BibleReaderScreen({ route, navigation }: any) {
     }
   };
 
+  const handleVerseLongPress = (item: any) => {
+    if (selectionMode) {
+      // Already in selection mode — toggle this verse
+      toggleVerseSelection(item.verse);
+    } else {
+      // Enter selection mode with this verse pre-selected
+      setSelectedVerses(new Set([item.verse]));
+      setSelectionMode(true);
+    }
+  };
+
+  const toggleVerseSelection = (verseNum: number) => {
+    setSelectedVerses(prev => {
+      const next = new Set(prev);
+      if (next.has(verseNum)) {
+        next.delete(verseNum);
+      } else {
+        next.add(verseNum);
+      }
+      return next;
+    });
+  };
+
+  const cancelSelection = () => {
+    setSelectionMode(false);
+    setSelectedVerses(new Set());
+  };
+
+  const saveMultipleVersesToNotes = async () => {
+    if (selectedVerses.size === 0) return;
+    try {
+      const stored = await AsyncStorage.getItem('@SermonPersonalNotes');
+      const notes = stored ? JSON.parse(stored) : [];
+
+      const dateStr = new Date().toLocaleDateString('en-US', {
+        month: 'short', day: 'numeric', year: 'numeric',
+        hour: '2-digit', minute: '2-digit'
+      });
+
+      // Sort selected verse numbers
+      const sortedVerseNums = Array.from(selectedVerses).sort((a, b) => a - b);
+
+      // Build combined content
+      const content = sortedVerseNums
+        .map(vNum => {
+          const v = verses.find((v: any) => v.verse === vNum);
+          return v ? `[${vNum}] ${v.text}` : '';
+        })
+        .filter(Boolean)
+        .join('\n\n');
+
+      // Build a smart title e.g. "Matthew 5:3-7" or "Matthew 5:3,6,9"
+      const isContiguous = sortedVerseNums.every((v, i) => i === 0 || v === sortedVerseNums[i - 1] + 1);
+      const rangeLabel = isContiguous && sortedVerseNums.length > 1
+        ? `${sortedVerseNums[0]}-${sortedVerseNums[sortedVerseNums.length - 1]}`
+        : sortedVerseNums.join(',');
+
+      const newNote = {
+        id: Date.now().toString(),
+        title: `${englishBookName} ${chapter}:${rangeLabel}`,
+        content,
+        timestamp: dateStr
+      };
+
+      notes.unshift(newNote);
+      await AsyncStorage.setItem('@SermonPersonalNotes', JSON.stringify(notes));
+
+      setSavedVerseCount(sortedVerseNums.length);
+      cancelSelection();
+      setShowSuccessModal(true);
+    } catch (e) {
+      console.error(e);
+      Alert.alert('Error', 'Failed to save verses.');
+    }
+  };
+
+  const saveToSermonNotes = async (item: any) => {
+    setShowVerseOptionsModal(false);
+    try {
+      const stored = await AsyncStorage.getItem('@SermonPersonalNotes');
+      const notes = stored ? JSON.parse(stored) : [];
+      
+      const dateStr = new Date().toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+
+      const newNote = {
+        id: Date.now().toString(),
+        title: `${englishBookName} ${chapter}:${item.verse}`,
+        content: item.text,
+        timestamp: dateStr
+      };
+
+      notes.unshift(newNote);
+      await AsyncStorage.setItem('@SermonPersonalNotes', JSON.stringify(notes));
+      setShowSuccessModal(true);
+    } catch (e) {
+      console.error(e);
+      Alert.alert("Error", "Failed to save verse.");
+    }
+  };
+
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: isDark ? '#0f172a' : '#fff' }]}>
       <StatusBar barStyle="light-content" />
@@ -176,7 +311,11 @@ export default function BibleReaderScreen({ route, navigation }: any) {
         </View>
       </View>
 
-      <ScrollView style={styles.scroll} showsVerticalScrollIndicator={false}>
+      <ScrollView 
+        ref={scrollViewRef}
+        style={styles.scroll} 
+        showsVerticalScrollIndicator={false}
+      >
         <View style={styles.readerContent}>
           {loading ? (
             <View style={styles.loadingContainer}>
@@ -190,14 +329,84 @@ export default function BibleReaderScreen({ route, navigation }: any) {
                </TouchableOpacity>
             </View>
           ) : (
-            verses.map((item: any, index: number) => (
-              <View key={index} style={styles.verseRow}>
-                <Text style={styles.verseNumber}>{item.verse}</Text>
-                <Text style={[styles.verseText, { color: isDark ? '#e2e8f0' : '#1e293b' }]}>
-                  {item.text}
-                </Text>
-              </View>
-            ))
+            verses.map((item: any, index: number) => {
+              const isTarget = targetVerse === item.verse;
+              const isSelected = selectedVerses.has(item.verse);
+
+              // In selection mode — all verses are tappable checkboxes
+              if (selectionMode) {
+                return (
+                  <TouchableOpacity
+                    key={index}
+                    activeOpacity={0.7}
+                    onPress={() => toggleVerseSelection(item.verse)}
+                    onLongPress={() => toggleVerseSelection(item.verse)}
+                    style={[
+                      styles.verseRow,
+                      isSelected && (isDark ? styles.selectedVerseDark : styles.selectedVerseLight)
+                    ]}
+                    onLayout={(e) => {
+                      const y = e.nativeEvent.layout.y;
+                      setVerseLayouts(prev => ({...prev, [item.verse]: y}));
+                    }}
+                  >
+                    {/* Checkbox indicator */}
+                    <View style={[styles.checkbox, isSelected && styles.checkboxSelected]}>
+                      {isSelected && <CheckCircle2 color="#fff" size={14} />}
+                    </View>
+                    <Text style={[styles.verseNumber, isSelected && { color: '#1a2d5a' }]}>{item.verse}</Text>
+                    <Text style={[styles.verseText, { color: isDark ? (isSelected ? '#bfdbfe' : '#e2e8f0') : (isSelected ? '#1e3a8a' : '#1e293b') }]}>
+                      {item.text}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              }
+
+              // Normal reading mode
+              return isTarget ? (
+                // ✨ Premium highlighted verse card (from search)
+                <TouchableOpacity
+                  key={index}
+                  activeOpacity={0.7}
+                  onLongPress={() => handleVerseLongPress(item)}
+                  style={[styles.highlightedCard, isDark ? styles.highlightedCardDark : styles.highlightedCardLight]}
+                  onLayout={(e) => {
+                    const y = e.nativeEvent.layout.y;
+                    setVerseLayouts(prev => ({...prev, [item.verse]: y}));
+                  }}
+                >
+                  <Text style={[styles.quoteDecor, { color: isDark ? 'rgba(253,224,71,0.35)' : 'rgba(217,119,6,0.2)' }]}>“</Text>
+                  <View style={[styles.verseNumBadge, { backgroundColor: isDark ? '#fde047' : '#d97706' }]}>
+                    <Text style={[styles.verseNumBadgeTxt, { color: isDark ? '#1a1a00' : '#fff' }]}>{item.verse}</Text>
+                  </View>
+                  <Text style={[styles.highlightedVerseText, { color: isDark ? '#fef9c3' : '#78350f' }]}>
+                    {item.text}
+                  </Text>
+                  <View style={styles.verseRefTag}>
+                    <Text style={[styles.verseRefTagTxt, { color: isDark ? '#fde047' : '#d97706' }]}>
+                      {englishBookName} {chapter}:{item.verse}
+                    </Text>
+                  </View>
+                </TouchableOpacity>
+              ) : (
+                // Normal verse row
+                <TouchableOpacity
+                  key={index}
+                  activeOpacity={0.6}
+                  onLongPress={() => handleVerseLongPress(item)}
+                  style={styles.verseRow}
+                  onLayout={(e) => {
+                    const y = e.nativeEvent.layout.y;
+                    setVerseLayouts(prev => ({...prev, [item.verse]: y}));
+                  }}
+                >
+                  <Text style={styles.verseNumber}>{item.verse}</Text>
+                  <Text style={[styles.verseText, { color: isDark ? '#e2e8f0' : '#1e293b' }]}>
+                    {item.text}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })
           )}
           
           {!loading && verses.length > 0 && (
@@ -210,24 +419,149 @@ export default function BibleReaderScreen({ route, navigation }: any) {
         <View style={{ height: 100 }} />
       </ScrollView>
 
-      {/* Floating Action Bar */}
-      <View style={styles.bottomBar}>
+      {/* Bottom Bar — switches between nav and selection action bar */}
+      {selectionMode ? (
+        <View style={[styles.selectionBar, { backgroundColor: isDark ? '#1e293b' : '#fff' }]}>
+          <TouchableOpacity style={styles.selectionCancelBtn} onPress={cancelSelection}>
+            <Text style={[styles.selectionCancelTxt, { color: isDark ? '#94a3b8' : '#64748b' }]}>Cancel</Text>
+          </TouchableOpacity>
+          <View style={styles.selectionCountBox}>
+            <Text style={[styles.selectionCountTxt, { color: isDark ? '#e2e8f0' : '#1a2d5a' }]}>
+              {selectedVerses.size} verse{selectedVerses.size !== 1 ? 's' : ''} selected
+            </Text>
+          </View>
+          <TouchableOpacity
+            style={[styles.selectionSaveBtn, selectedVerses.size === 0 && { opacity: 0.4 }]}
+            onPress={saveMultipleVersesToNotes}
+            disabled={selectedVerses.size === 0}
+          >
+            <BookMarked color="#fff" size={16} />
+            <Text style={styles.selectionSaveTxt}>Save</Text>
+          </TouchableOpacity>
+        </View>
+      ) : (
+        <View style={styles.bottomBar}>
+          <TouchableOpacity 
+            style={[styles.barAction, chapter <= 1 && { opacity: 0.3 }]} 
+            onPress={() => chapter > 1 && navigation.replace('BibleReader', { bookName, chapter: chapter - 1, lang })}
+            disabled={chapter <= 1}
+          >
+            <ChevronLeft color="#1a2d5a" size={24} />
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.barMain}>
+            <Text style={styles.barMainTxt}>Select Chapter</Text>
+          </TouchableOpacity>
+          <TouchableOpacity 
+            style={[styles.barAction, chapter >= totalChapters && { opacity: 0.3 }]}
+            onPress={() => chapter < totalChapters && navigation.replace('BibleReader', { bookName, chapter: chapter + 1, lang })}
+            disabled={chapter >= totalChapters}
+          >
+            <ChevronLeft color="#1a2d5a" size={24} style={{ transform: [{ rotate: '180deg' }] }} />
+          </TouchableOpacity>
+        </View>
+      )}
+
+      {/* Verse Options Modal */}
+      <Modal
+        visible={showVerseOptionsModal}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={() => setShowVerseOptionsModal(false)}
+      >
         <TouchableOpacity 
-          style={styles.barAction} 
-          onPress={() => chapter > 1 && navigation.replace('BibleReader', { bookName, chapter: chapter - 1, lang })}
+          style={styles.optionsOverlay} 
+          activeOpacity={1} 
+          onPress={() => setShowVerseOptionsModal(false)}
         >
-          <ChevronLeft color="#1a2d5a" size={24} />
+          <View style={[styles.optionsSheet, { backgroundColor: isDark ? '#1e293b' : '#ffffff' }]}>
+            {/* Handle bar */}
+            <View style={styles.optionsHandle} />
+
+            {/* Verse Reference Header */}
+            <View style={styles.optionsHeader}>
+              <View style={styles.optionsIconBox}>
+                <BookMarked color="#1a2d5a" size={22} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.optionsRefText, { color: isDark ? '#f8fafc' : '#0f172a' }]}>
+                  {englishBookName} {chapter}:{selectedVerseItem?.verse}
+                </Text>
+                <Text style={[styles.optionsSubText, { color: isDark ? '#94a3b8' : '#64748b' }]}>
+                  Long-pressed verse
+                </Text>
+              </View>
+            </View>
+
+            {/* Verse Preview */}
+            {selectedVerseItem && (
+              <View style={[styles.optionsVersePreview, { backgroundColor: isDark ? '#0f172a' : '#f8fafc' }]}>
+                <Text style={[styles.optionsVersePreviewText, { color: isDark ? '#cbd5e1' : '#334155' }]} numberOfLines={3}>
+                  {selectedVerseItem.text}
+                </Text>
+              </View>
+            )}
+
+            {/* Action Button */}
+            <TouchableOpacity
+              style={styles.optionsActionBtn}
+              onPress={() => selectedVerseItem && saveToSermonNotes(selectedVerseItem)}
+            >
+              <BookMarked color="#ffffff" size={18} />
+              <Text style={styles.optionsActionBtnTxt}>Add to Sermon Notes</Text>
+            </TouchableOpacity>
+
+            {/* Cancel */}
+            <TouchableOpacity
+              style={styles.optionsCancelBtn}
+              onPress={() => setShowVerseOptionsModal(false)}
+            >
+              <Text style={[styles.optionsCancelTxt, { color: isDark ? '#94a3b8' : '#64748b' }]}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.barMain}>
-          <Text style={styles.barMainTxt}>Select Chapter</Text>
-        </TouchableOpacity>
-        <TouchableOpacity 
-          style={styles.barAction}
-          onPress={() => navigation.replace('BibleReader', { bookName, chapter: chapter + 1, lang })}
-        >
-          <ChevronLeft color="#1a2d5a" size={24} style={{ transform: [{ rotate: '180deg' }] }} />
-        </TouchableOpacity>
-      </View>
+      </Modal>
+
+      {/* Beautiful Success Modal */}
+      <Modal
+        visible={showSuccessModal}
+        transparent={true}
+        animationType="fade"
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContent, { backgroundColor: isDark ? '#1e293b' : '#fff' }]}>
+            <View style={styles.modalIconContainer}>
+              <CheckCircle2 color="#10b981" size={50} />
+            </View>
+            <Text style={[styles.modalTitle, { color: isDark ? '#f8fafc' : '#0f172a' }]}>
+              {savedVerseCount > 1 ? `${savedVerseCount} Verses Saved!` : 'Verse Saved!'}
+            </Text>
+            <Text style={[styles.modalDesc, { color: isDark ? '#94a3b8' : '#64748b' }]}>
+              {savedVerseCount > 1
+                ? `${savedVerseCount} verses have been added to your Sermon Notes as one entry.`
+                : 'This verse has been successfully added to your Sermon Notes.'}
+            </Text>
+            
+            <View style={styles.modalActions}>
+              <TouchableOpacity 
+                style={[styles.modalBtn, styles.modalBtnSecondary]} 
+                onPress={() => setShowSuccessModal(false)}
+              >
+                <Text style={styles.modalBtnSecondaryTxt}>Continue Reading</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity 
+                style={[styles.modalBtn, styles.modalBtnPrimary]} 
+                onPress={() => {
+                  setShowSuccessModal(false);
+                  navigation.navigate('MemberNotes');
+                }}
+              >
+                <Text style={styles.modalBtnPrimaryTxt}>View Notes</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -277,7 +611,158 @@ const styles = StyleSheet.create({
     lineHeight: 28,
     fontWeight: '500'
   },
+  // Highlighted verse card — gold/amber themed
+  highlightedCardLight: {
+    backgroundColor: '#fffbeb',
+    borderRadius: 16,
+    padding: 18,
+    marginBottom: 20,
+    marginHorizontal: -4,
+    borderWidth: 1.5,
+    borderColor: '#fcd34d',
+    shadowColor: '#d97706',
+    shadowOpacity: 0.22,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 6
+  },
+  highlightedCardDark: {
+    backgroundColor: '#1c1a00',
+    borderRadius: 16,
+    padding: 18,
+    marginBottom: 20,
+    marginHorizontal: -4,
+    borderWidth: 1.5,
+    borderColor: 'rgba(253,224,71,0.4)',
+    shadowColor: '#fde047',
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 6
+  },
+  quoteDecor: {
+    fontSize: 80,
+    lineHeight: 68,
+    fontWeight: '900',
+    marginBottom: -10,
+    marginLeft: -4
+  },
+  verseNumBadge: {
+    alignSelf: 'flex-start',
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+    borderRadius: 20,
+    marginBottom: 10
+  },
+  verseNumBadgeTxt: {
+    fontSize: 12,
+    fontWeight: '800'
+  },
+  highlightedVerseText: {
+    fontSize: 19,
+    lineHeight: 32,
+    fontWeight: '700',
+    marginBottom: 14
+  },
+  verseRefTag: {
+    alignSelf: 'flex-end',
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(217,119,6,0.2)',
+    paddingTop: 8,
+    width: '100%',
+    alignItems: 'flex-end'
+  },
+  verseRefTagTxt: {
+    fontSize: 12,
+    fontWeight: '700',
+    letterSpacing: 0.5
+  },
   
+  // Legacy (kept for safety)
+
+  // Multi-verse selection styles
+  selectedVerseLight: {
+    backgroundColor: 'rgba(26, 45, 90, 0.08)',
+    borderRadius: 10,
+    paddingVertical: 4,
+    paddingHorizontal: 4,
+    marginHorizontal: -4,
+    borderLeftWidth: 3,
+    borderLeftColor: '#1a2d5a'
+  },
+  selectedVerseDark: {
+    backgroundColor: 'rgba(96, 165, 250, 0.15)',
+    borderRadius: 10,
+    paddingVertical: 4,
+    paddingHorizontal: 4,
+    marginHorizontal: -4,
+    borderLeftWidth: 3,
+    borderLeftColor: '#60a5fa'
+  },
+  checkbox: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    borderWidth: 2,
+    borderColor: '#94a3b8',
+    marginRight: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: 3,
+    flexShrink: 0
+  },
+  checkboxSelected: {
+    backgroundColor: '#1a2d5a',
+    borderColor: '#1a2d5a'
+  },
+
+  // Selection action bar
+  selectionBar: {
+    position: 'absolute',
+    bottom: 30,
+    left: 20,
+    right: 20,
+    height: 60,
+    borderRadius: 30,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    elevation: 12,
+    shadowColor: '#1a2d5a',
+    shadowOpacity: 0.2,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 5 }
+  },
+  selectionCancelBtn: {
+    paddingHorizontal: 8
+  },
+  selectionCancelTxt: {
+    fontSize: 14,
+    fontWeight: '600'
+  },
+  selectionCountBox: {
+    flex: 1,
+    alignItems: 'center'
+  },
+  selectionCountTxt: {
+    fontSize: 14,
+    fontWeight: '800'
+  },
+  selectionSaveBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: '#1a2d5a',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 20
+  },
+  selectionSaveTxt: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '800'
+  },
+
   chapterEnd: { alignItems: 'center', marginTop: 40 },
   divider: { width: 50, height: 2, backgroundColor: '#e2e8f0', marginBottom: 10 },
   endText: { fontSize: 12, color: '#94a3b8', fontWeight: '600' },
@@ -299,9 +784,94 @@ const styles = StyleSheet.create({
     shadowRadius: 10,
     shadowOffset: { width: 0, height: 5 }
   },
-  barAction: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
-  barMain: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  barMainTxt: { color: '#1a2d5a', fontWeight: '800', fontSize: 14 },
+  barAction: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#f1f5f9',
+    alignItems: 'center',
+    justifyContent: 'center'
+  },
+  barMain: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center'
+  },
+  barMainTxt: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: '#1a2d5a'
+  },
+
+  // Modal Styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20
+  },
+  modalContent: {
+    width: '100%',
+    maxWidth: 340,
+    borderRadius: 24,
+    padding: 24,
+    alignItems: 'center',
+    elevation: 10,
+    shadowColor: '#000',
+    shadowOpacity: 0.2,
+    shadowRadius: 15,
+    shadowOffset: { width: 0, height: 10 }
+  },
+  modalIconContainer: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: '#ecfdf5',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 16
+  },
+  modalTitle: {
+    fontSize: 22,
+    fontWeight: '800',
+    marginBottom: 8,
+    textAlign: 'center'
+  },
+  modalDesc: {
+    fontSize: 15,
+    textAlign: 'center',
+    lineHeight: 22,
+    marginBottom: 24
+  },
+  modalActions: {
+    flexDirection: 'row',
+    gap: 12,
+    width: '100%'
+  },
+  modalBtn: {
+    flex: 1,
+    paddingVertical: 14,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center'
+  },
+  modalBtnSecondary: {
+    backgroundColor: '#f1f5f9'
+  },
+  modalBtnSecondaryTxt: {
+    color: '#475569',
+    fontSize: 14,
+    fontWeight: '700'
+  },
+  modalBtnPrimary: {
+    backgroundColor: '#1a2d5a'
+  },
+  modalBtnPrimaryTxt: {
+    color: '#ffffff',
+    fontSize: 14,
+    fontWeight: '700'
+  },
   
   retryBtn: {
     marginTop: 20,
@@ -314,5 +884,89 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontWeight: '700',
     fontSize: 14
+  },
+
+  // Verse Options Bottom Sheet
+  optionsOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.45)',
+    justifyContent: 'flex-end'
+  },
+  optionsSheet: {
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    padding: 24,
+    paddingBottom: 36,
+    elevation: 20,
+    shadowColor: '#000',
+    shadowOpacity: 0.3,
+    shadowRadius: 20,
+    shadowOffset: { width: 0, height: -5 }
+  },
+  optionsHandle: {
+    width: 44,
+    height: 5,
+    borderRadius: 3,
+    backgroundColor: '#cbd5e1',
+    alignSelf: 'center',
+    marginBottom: 20
+  },
+  optionsHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+    marginBottom: 16
+  },
+  optionsIconBox: {
+    width: 46,
+    height: 46,
+    borderRadius: 14,
+    backgroundColor: '#eff6ff',
+    justifyContent: 'center',
+    alignItems: 'center'
+  },
+  optionsRefText: {
+    fontSize: 18,
+    fontWeight: '800'
+  },
+  optionsSubText: {
+    fontSize: 12,
+    fontWeight: '500',
+    marginTop: 2
+  },
+  optionsVersePreview: {
+    borderRadius: 14,
+    padding: 14,
+    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(100,116,139,0.12)'
+  },
+  optionsVersePreviewText: {
+    fontSize: 14,
+    lineHeight: 22,
+    fontWeight: '500'
+  },
+  optionsActionBtn: {
+    backgroundColor: '#1a2d5a',
+    borderRadius: 16,
+    paddingVertical: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+    marginBottom: 12
+  },
+  optionsActionBtnTxt: {
+    color: '#ffffff',
+    fontSize: 16,
+    fontWeight: '800'
+  },
+  optionsCancelBtn: {
+    paddingVertical: 12,
+    alignItems: 'center'
+  },
+  optionsCancelTxt: {
+    fontSize: 15,
+    fontWeight: '600'
   }
 });

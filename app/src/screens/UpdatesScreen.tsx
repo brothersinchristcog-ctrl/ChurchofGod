@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { StyleSheet, View, Text, ScrollView, TouchableOpacity, StatusBar, Platform, ActivityIndicator, Modal, PanResponder, Animated, Dimensions, Linking } from 'react-native';
-import { ChevronLeft, Bell, Calendar, Info, MessageCircle, AlertTriangle, X, Gift, Heart, Sparkles, Trash2, Tv } from 'lucide-react-native';
+import { ChevronLeft, Bell, Calendar, Info, MessageCircle, AlertTriangle, X, Gift, Heart, Sparkles, Trash2, Tv, BookOpen, Music, Mic } from 'lucide-react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { 
   getFirestore, 
@@ -96,6 +96,20 @@ function SwipeableRow({ children, onDelete }: { children: React.ReactNode; onDel
   );
 }
 
+// Strip HTML tags from rich-text fields (e.g., promise content stored as HTML)
+function stripHtml(html: string): string {
+  if (!html) return '';
+  return html
+    .replace(/<[^>]+>/g, '')        // remove tags
+    .replace(/&nbsp;/g, ' ')        // decode &nbsp;
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/\n{3,}/g, '\n\n')     // collapse excessive newlines
+    .trim();
+}
+
 export default function UpdatesScreen({ navigation, route }: any) {
   const { highlightId, highlightType } = route?.params || {};
   const [dynamicUpdates, setDynamicUpdates] = useState<any[]>([]);
@@ -186,11 +200,23 @@ export default function UpdatesScreen({ navigation, route }: any) {
               icon = Heart;
               color = '#be185d';
               resolvedType = 'anniversary';
+            } else if (data.type === 'promise' || data.title?.includes('Promise') || data.title?.includes('వాగ్దానం')) {
+              icon = BookOpen;
+              color = '#8b5cf6';
+              resolvedType = 'promise';
+            } else if (data.type === 'song' || data.title?.includes('Song') || data.title?.includes('🎵')) {
+              icon = Music;
+              color = '#ec4899';
+              resolvedType = 'song';
+            } else if (data.type === 'sermon' || data.title?.includes('Sermon') || data.title?.includes('Message')) {
+              icon = Mic;
+              color = '#6366f1';
+              resolvedType = 'sermon';
             }
             return {
               id: doc.id,
               title: data.title || 'Announcement',
-              content: data.content || '',
+              content: stripHtml(data.content || ''),
               date: data.date || new Date().toISOString().split('T')[0],
               type: resolvedType,
               icon: icon,
@@ -334,7 +360,19 @@ export default function UpdatesScreen({ navigation, route }: any) {
               <TouchableOpacity 
                 style={styles.updateCard}
                 activeOpacity={0.7}
-                onPress={() => setSelectedUpdate(update)}
+                onPress={() => {
+                  if (update.type === 'song') {
+                    navigation.navigate('Songs');
+                  } else if (update.type === 'promise') {
+                    navigation.navigate('Tabs', { screen: 'Promise' });
+                  } else if (update.type === 'sermon') {
+                    navigation.navigate('Sermons');
+                  } else if (update.type === 'event') {
+                    navigation.navigate('Events');
+                  } else {
+                    setSelectedUpdate(update);
+                  }
+                }}
               >
                 <View style={[styles.iconBox, { backgroundColor: update.color + '15' }]}>
                   <update.icon size={22} color={update.color} />

@@ -10,6 +10,8 @@ interface AuthContextType {
   signInAnonymously: () => Promise<void>;
   signOut: () => Promise<void>;
   setMember: (member: SalesforceMember | null) => void;
+  viewMode: 'admin' | 'member';
+  setViewMode: (mode: 'admin' | 'member') => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -20,6 +22,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [user, setUser] = useState<FirebaseAuthTypes.User | null>(null);
   const [member, setMember] = useState<SalesforceMember | null>(null);
   const [loading, setLoading] = useState(true);
+  const [viewMode, setViewMode] = useState<'admin' | 'member'>('admin');
 
   const updateMember = (newMember: SalesforceMember | null) => {
     setMember(newMember);
@@ -81,7 +84,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   return (
-    <AuthContext.Provider value={{ user, member, loading, signInAnonymously, signOut, setMember }}>
+    <AuthContext.Provider value={{ user, member, loading, signInAnonymously, signOut, setMember, viewMode, setViewMode }}>
       {children}
     </AuthContext.Provider>
   );

@@ -14,7 +14,8 @@ import {
   LogOut,
   Menu,
   Users,
-  Gift
+  Gift,
+  Smartphone
 } from 'lucide-react-native';
 import { useAuth } from '../context/AuthContext';
 import Theme from '../theme/Theme';
@@ -38,7 +39,7 @@ import AdminCelebrations from '../screens/admin/AdminCelebrations';
 const { width } = Dimensions.get('window');
 
 export default function AdminNavigator() {
-  const { signOut, user, member } = useAuth();
+  const { signOut, user, member, setViewMode } = useAuth();
   const [activeTab, setActiveTab] = useState(0);
   const [editingData, setEditingData] = useState(null);
   const [menuExpanded, setMenuExpanded] = useState(false);
@@ -141,9 +142,26 @@ export default function AdminNavigator() {
                 </View>
               </ScrollView>
 
-              {/* Sign Out Button */}
+              {/* Footer Actions */}
               <View style={styles.drawerFooter}>
-                <TouchableOpacity style={styles.drawerSignOutBtn} onPress={signOut}>
+                <TouchableOpacity 
+                  style={[styles.drawerSignOutBtn, { 
+                    marginBottom: 16, 
+                    backgroundColor: 'rgba(252, 211, 77, 0.15)', 
+                    borderWidth: 1, 
+                    borderColor: 'rgba(252, 211, 77, 0.5)',
+                    flexDirection: 'row',
+                    justifyContent: 'center',
+                    gap: 10
+                  }]} 
+                  onPress={() => setViewMode('member')}
+                >
+                  <Smartphone size={20} color="#FCD34D" />
+                  <Text style={[styles.drawerSignOutTxt, { color: '#FCD34D', fontWeight: '800' }]}>Member View</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity style={[styles.drawerSignOutBtn, { flexDirection: 'row', justifyContent: 'center', gap: 10 }]} onPress={signOut}>
+                  <LogOut size={20} color="#fff" />
                   <Text style={styles.drawerSignOutTxt}>Sign out</Text>
                 </TouchableOpacity>
               </View>

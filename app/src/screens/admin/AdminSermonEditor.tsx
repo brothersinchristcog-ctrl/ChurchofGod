@@ -45,6 +45,19 @@ import SalesforceService from '../../services/SalesforceService';
 
 const { width } = Dimensions.get('window');
 
+const SERMON_CATEGORIES = [
+  'Bible Study',
+  "Women's Fasting Prayer",
+  'Second Saturday Prayer',
+  'Sunday Service',
+  'All-Night Prayer',
+  'Youth Meeting',
+  'Revival Meeting',
+  'Special Messages',
+  'Shorts',
+  'Testimonies',
+];
+
 export default function AdminSermonEditor() {
   const { setActiveTab, editingData, setEditingData } = useContext(AdminTabContext);
   const [loading, setLoading] = useState(false);
@@ -79,6 +92,13 @@ export default function AdminSermonEditor() {
     notifyMembers: true,
     autoSend: false
   });
+  const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
+
+  const toggleCategory = (cat: string) => {
+    setSelectedCategories(prev =>
+      prev.includes(cat) ? prev.filter(c => c !== cat) : [...prev, cat]
+    );
+  };
 
   useEffect(() => {
     if (editingData) {
@@ -94,6 +114,14 @@ export default function AdminSermonEditor() {
         description: editingData.description || '',
         status: editingData.status || 'Published'
       }));
+      // Load existing categories
+      if (editingData.categories) {
+        setSelectedCategories(
+          typeof editingData.categories === 'string'
+            ? editingData.categories.split(';').filter(Boolean)
+            : editingData.categories
+        );
+      }
     }
   }, [editingData]);
 
@@ -132,7 +160,8 @@ export default function AdminSermonEditor() {
         id: editingData?.id,
         ...form,
         status: status || form.status,
-        scripture: form.ref
+        scripture: form.ref,
+        categories: selectedCategories.join(';')
       };
       await SalesforceService.createSermon(payload);
       setShowSuccess(true);
@@ -209,6 +238,45 @@ export default function AdminSermonEditor() {
             <Text style={styles.fLabel}>Scripture reference</Text>
             <TextInput style={styles.input} value={form.ref} onChangeText={(v) => setForm({...form, ref: v})} placeholder="e.g. James 1:2-4" />
           </View>
+        </View>
+
+        {/* Categories */}
+        <View style={styles.modBox}>
+          <View style={[styles.modHd, styles.hdBlue]}>
+            <Folder size={14} color="#1a2d5a" />
+            <Text style={styles.modHdTxt}>Sermon Category</Text>
+          </View>
+          <Text style={[styles.fHint, { marginBottom: 14, fontSize: 11 }]}>Select all that apply. Members will see sermons grouped under these categories.</Text>
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
+            {SERMON_CATEGORIES.map(cat => {
+              const isSelected = selectedCategories.includes(cat);
+              return (
+                <TouchableOpacity
+                  key={cat}
+                  onPress={() => toggleCategory(cat)}
+                  style={{
+                    paddingHorizontal: 14,
+                    paddingVertical: 8,
+                    borderRadius: 20,
+                    borderWidth: 1.5,
+                    borderColor: isSelected ? '#1a2d5a' : '#d1d5db',
+                    backgroundColor: isSelected ? '#1a2d5a' : '#fff',
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    gap: 6
+                  }}
+                >
+                  {isSelected && <CheckCircle2 size={13} color="#FCD34D" />}
+                  <Text style={{ fontSize: 12, fontWeight: '600', color: isSelected ? '#fff' : '#374151' }}>{cat}</Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+          {selectedCategories.length > 0 && (
+            <View style={{ marginTop: 14, backgroundColor: '#f0f7ff', borderRadius: 8, padding: 10 }}>
+              <Text style={{ fontSize: 11, color: '#1a2d5a', fontWeight: '600' }}>Selected: {selectedCategories.join(' · ')}</Text>
+            </View>
+          )}
         </View>
 
         {/* 2. Media & Details */}

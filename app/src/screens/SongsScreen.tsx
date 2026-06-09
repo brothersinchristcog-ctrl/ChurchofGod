@@ -40,9 +40,13 @@ const CATEGORIES = [
   'Stuthi Songs',
   'Aradhana Songs',
   'Offering Songs',
+  'Special Songs',
+  'Gospel Songs',
+  'Youth Songs',
   'Christmas Songs',
   'Easter Songs',
-  'Youth Songs',
+  'Marriage Songs',
+  'Thanksgiving Songs',
   'Other'
 ];
 
@@ -50,7 +54,7 @@ export default function SongsScreen({ navigation }: any) {
   const { isDark } = useTheme();
 
   // ── Tabs ──────────────────────────────────────────
-  const [activeTab, setActiveTab] = useState<'browse' | 'songbook'>('browse');
+  const [activeTab, setActiveTab] = useState<'browse' | 'songbook' | 'theme'>('browse');
 
   // ── All Songs ─────────────────────────────────────
   const [songs, setSongs] = useState<WorshipSong[]>([]);
@@ -112,10 +116,17 @@ export default function SongsScreen({ navigation }: any) {
     await AsyncStorage.setItem(SONGBOOK_KEY, JSON.stringify(newIds));
   };
 
+  // Helper: split multi-category string into array
+  const getSongCategories = (song: WorshipSong): string[] =>
+    (song.category || 'Other').split(';').map(c => c.trim()).filter(Boolean);
+
   // ── Filtered songs ────────────────────────────────
   const filteredBrowse = songs.filter(s => {
+    const cats = getSongCategories(s);
+    // Songs that are ONLY a Theme Song stay in Theme tab; others (including those that are also Theme Song) show in Browse too
+    if (cats.length === 1 && cats[0] === 'Theme Songs') return false;
     const q = search.toLowerCase().trim();
-    const matchCategory = selectedCategory === 'All' || (s.category || 'Other') === selectedCategory;
+    const matchCategory = selectedCategory === 'All' || cats.includes(selectedCategory);
     const matchSearch = !q ||
       s.title.toLowerCase().includes(q) ||
       (s.titleTe && s.titleTe.toLowerCase().includes(q)) ||
@@ -125,6 +136,13 @@ export default function SongsScreen({ navigation }: any) {
 
   const savedSongs = songs.filter(s => savedIds.includes(s.id));
   const filteredSongbook = savedSongs.filter(s => {
+    const q = search.toLowerCase().trim();
+    return !q || s.title.toLowerCase().includes(q) || (s.titleTe && s.titleTe.toLowerCase().includes(q));
+  });
+
+  const filteredTheme = songs.filter(s => {
+    const cats = getSongCategories(s);
+    if (!cats.includes('Theme Songs')) return false;
     const q = search.toLowerCase().trim();
     return !q || s.title.toLowerCase().includes(q) || (s.titleTe && s.titleTe.toLowerCase().includes(q));
   });
@@ -184,6 +202,11 @@ export default function SongsScreen({ navigation }: any) {
             My Songbook {savedIds.length > 0 ? `(${savedIds.length})` : ''}
           </Text>
         </TouchableOpacity>
+        <TouchableOpacity style={[styles.tab, activeTab === 'theme' && styles.tabActive]}
+          onPress={() => { setActiveTab('theme'); setSearch(''); }}>
+          <Music size={14} color={activeTab === 'theme' ? '#fff' : '#64748b'} />
+          <Text style={[styles.tabTxt, activeTab === 'theme' && styles.tabTxtActive]}>Theme Songs</Text>
+        </TouchableOpacity>
       </View>
 
       {/* ── Category Chips (Browse only) ── */}
@@ -206,7 +229,7 @@ export default function SongsScreen({ navigation }: any) {
       <View style={[styles.searchBar, { backgroundColor: isDark ? '#1e293b' : '#fff' }]}>
         <Search size={18} color={isDark ? '#94a3b8' : '#64748b'} />
         <TextInput
-          placeholder={activeTab === 'browse' ? 'Search songs...' : 'Search your songbook...'}
+          placeholder={activeTab === 'browse' ? 'Search songs...' : activeTab === 'theme' ? 'Search theme songs...' : 'Search your songbook...'}
           placeholderTextColor={isDark ? '#64748b' : '#94a3b8'}
           style={[styles.searchInput, { color: isDark ? '#fff' : '#0f172a' }]}
           value={search} onChangeText={setSearch}
@@ -271,11 +294,40 @@ export default function SongsScreen({ navigation }: any) {
           ListEmptyComponent={
             <View style={styles.emptyState}>
               <BookMarked size={44} color="#cbd5e1" />
-              <Text style={[styles.emptyTitle, { color: isDark ? '#94a3b8' : '#1a2d5a' }]}>Your Songbook is empty</Text>
-              <Text style={styles.emptySub}>Browse songs and long-press to save them here</Text>
+              <Text style={[styles.emptyTitle, { color: isDark ? '#94a3b8' : '#1a2d5a' }]}>Your Songbook is Empty</Text>
+              <Text style={styles.emptySub}>Long press any song in the Browse tab to save it here for offline viewing.</Text>
             </View>
           }
         />
+      )}
+
+      {/* ── Theme Songs List ── */}
+      {activeTab === 'theme' && (
+        loading && !refreshing ? (
+          <View style={styles.loadingBox}>
+            <ActivityIndicator size="large" color="#fbbf24" />
+          </View>
+        ) : (
+          <FlatList
+            data={filteredTheme}
+            keyExtractor={item => item.id}
+            renderItem={renderSongCard}
+            contentContainerStyle={styles.listContent}
+            showsVerticalScrollIndicator={false}
+            refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#1a2d5a" />}
+            ListHeaderComponent={() => (
+              <Text style={styles.secLbl}>
+                THEME SONGS · {filteredTheme.length} Songs
+              </Text>
+            )}
+            ListEmptyComponent={
+              <View style={styles.emptyState}>
+                <Text style={[styles.emptyTitle, { color: isDark ? '#94a3b8' : '#1a2d5a' }]}>No Theme Songs</Text>
+                <Text style={styles.emptySub}>There are currently no Theme Songs available.</Text>
+              </View>
+            }
+          />
+        )
       )}
 
       {/* ── Lyrics Modal ── */}

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   StyleSheet, 
   View, 
@@ -70,8 +70,37 @@ export default function BibleScreen({ navigation }: any) {
   const [lang, setLang] = useState<'English' | 'Telugu'>('Telugu');
   const [testament, setTestament] = useState<'OT' | 'NT'>('NT');
   const [searchQuery, setSearchQuery] = useState('');
+  const [suggestions, setSuggestions] = useState<string[]>([]);
 
   const books = lang === 'English' ? BIBLE_DATA.English[testament] : BIBLE_DATA.Telugu[testament];
+
+  useEffect(() => {
+    const fetchSuggestions = async () => {
+      if (!searchQuery.trim() || lang !== 'Telugu') {
+        setSuggestions([]);
+        return;
+      }
+      
+      const isEnglishQuery = /[a-zA-Z]/.test(searchQuery);
+      if (isEnglishQuery) {
+        try {
+          const transResponse = await fetch(`https://inputtools.google.com/request?text=${encodeURIComponent(searchQuery)}&itc=te-t-i0-und&num=5`);
+          if (transResponse.ok) {
+            const transData = await transResponse.json();
+            const suggestionsList = transData?.[1]?.[0]?.[1] || [];
+            setSuggestions(suggestionsList);
+          }
+        } catch (e) {
+          // silently ignore suggestion fetch errors
+        }
+      } else {
+        setSuggestions([]);
+      }
+    };
+
+    const debounceTimer = setTimeout(fetchSuggestions, 300);
+    return () => clearTimeout(debounceTimer);
+  }, [searchQuery, lang]);
 
   // Helper mapping for English Abbreviations
   const abbrevMap: any = {
@@ -221,6 +250,20 @@ export default function BibleScreen({ navigation }: any) {
         )}
       </View>
 
+      {/* Suggestions */}
+      {suggestions.length > 0 && (
+        <View style={{ marginHorizontal: 20, marginBottom: 15 }}>
+          <TouchableOpacity 
+            style={[{ paddingHorizontal: 16, paddingVertical: 12, borderRadius: 12, alignItems: 'center' }, { backgroundColor: isDark ? '#334155' : '#e2e8f0' }]} 
+            onPress={() => { setSearchQuery(suggestions[0]); setSuggestions([]); }}
+          >
+            <Text style={[styles.suggestionTxt, { color: isDark ? '#f8fafc' : '#0f172a' }]}>
+              {lang === 'English' ? 'Translate to Telugu: ' : ''}{suggestions[0]}
+            </Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
       {/* Language Toggle */}
       <View style={styles.toggleContainer}>
         <TouchableOpacity 
@@ -278,7 +321,6 @@ export default function BibleScreen({ navigation }: any) {
         </TouchableOpacity>
       )}
 
-      {/* Testament Selector - Hidden when searching for focus */}
       {!searchQuery && (
         <View style={styles.tabContainer}>
           <TouchableOpacity 
@@ -298,6 +340,32 @@ export default function BibleScreen({ navigation }: any) {
             </Text>
           </TouchableOpacity>
         </View>
+      )}
+
+      {/* Deep Verse Search Prompt */}
+      {searchQuery.length > 2 && !parsedRef?.chapter && (
+        <TouchableOpacity 
+          style={styles.deepSearchCard}
+          onPress={() => {
+            navigation.navigate('BibleSearch', {
+              initialQuery: searchQuery,
+              initialLang: lang
+            });
+          }}
+        >
+          <View style={styles.deepSearchLeft}>
+            <View style={styles.deepSearchIcon}>
+              <Search size={18} color="#fff" />
+            </View>
+            <View>
+              <Text style={styles.deepSearchTitle}>
+                {lang === 'English' ? 'Search all verses for' : 'అన్ని వచనాలలో వెతకండి'}
+              </Text>
+              <Text style={styles.deepSearchQuery}>"{searchQuery}"</Text>
+            </View>
+          </View>
+          <ChevronLeft color="#1a2d5a" size={20} style={{ transform: [{ rotate: '180deg' }] }} />
+        </TouchableOpacity>
       )}
 
       <ScrollView style={styles.scroll} showsVerticalScrollIndicator={false}>
@@ -540,5 +608,62 @@ const styles = StyleSheet.create({
     color: '#94a3b8',
     textAlign: 'center',
     lineHeight: 18,
+  },
+  deepSearchHint: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    marginHorizontal: 20,
+    marginTop: 5,
+    backgroundColor: '#fee2e2',
+    borderRadius: 12,
+    gap: 8,
+    borderWidth: 1,
+    borderColor: '#fecaca',
+  },
+  deepSearchTxt: {
+    color: '#c0392b',
+    fontWeight: '700',
+    fontSize: 13,
+  },
+  suggestionTxt: { fontSize: 16, fontWeight: '600' },
+  deepSearchCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#eff6ff',
+    marginHorizontal: 20,
+    marginBottom: 20,
+    padding: 16,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#bfdbfe'
+  },
+  deepSearchLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12
+  },
+  deepSearchIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#1a2d5a',
+    alignItems: 'center',
+    justifyContent: 'center'
+  },
+  deepSearchTitle: {
+    color: '#64748b',
+    fontSize: 11,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5
+  },
+  deepSearchQuery: {
+    color: '#1a2d5a',
+    fontSize: 15,
+    fontWeight: '800',
+    marginTop: 2
   }
 });

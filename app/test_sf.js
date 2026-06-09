@@ -31,7 +31,8 @@ async function testLoginURL(loginUrl) {
 }
 
 async function runTests() {
-  await testLoginURL('https://kristhunandusahodarulusahavasam--cog.sandbox.my.salesforce.com');
+  const loginUrl = process.env.EXPO_PUBLIC_SALESFORCE_LOGIN_URL || 'https://login.salesforce.com';
+  await testLoginURL(loginUrl);
 }
 
 runTests();

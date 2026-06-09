@@ -9,7 +9,8 @@ import {
   ActivityIndicator, 
   Platform, 
   StatusBar,
-  Dimensions
+  Dimensions,
+  Alert
 } from 'react-native';
 import { 
   Search, 
@@ -19,7 +20,8 @@ import {
   RefreshCw,
   Video,
   Clock,
-  Edit2
+  Edit2,
+  Trash2
 } from 'lucide-react-native';
 import { AdminTabContext } from '../../context/AdminTabContext';
 
@@ -67,6 +69,31 @@ export default function AdminSermonList() {
       url = `https://www.youtube.com/watch?v=${id}`;
     }
     Linking.openURL(url).catch(err => console.error(err));
+  };
+
+  const handleDelete = (sermon: Sermon) => {
+    Alert.alert(
+      "Delete Sermon",
+      `Are you sure you want to delete "${sermon.title}"?\n\nThis action cannot be undone.`,
+      [
+        { text: "Cancel", style: "cancel" },
+        { 
+          text: "Delete", 
+          style: "destructive",
+          onPress: async () => {
+            if (!sermon.id) return;
+            try {
+              setLoading(true);
+              await SalesforceService.deleteSermon(sermon.id);
+              fetchSermons(); // Refresh list after delete
+            } catch (err: any) {
+              Alert.alert("Delete Failed", err.message || "Could not delete sermon.");
+              setLoading(false);
+            }
+          }
+        }
+      ]
+    );
   };
 
   const stats = {
@@ -162,14 +189,19 @@ export default function AdminSermonList() {
                     {sermon.status || 'Published'}
                   </Text>
                 </View>
-                <Text style={styles.siViews}>{sermon.viewCount || '0'} views</Text>
               </View>
             </TouchableOpacity>
 
-            <TouchableOpacity style={styles.editAction} onPress={() => handleEdit(sermon)}>
-              <Edit2 size={16} color="#1a2d5a" />
-              <Text style={styles.editActionTxt}>Edit</Text>
-            </TouchableOpacity>
+            <View style={styles.actionsContainer}>
+              <TouchableOpacity style={styles.editAction} onPress={() => handleEdit(sermon)}>
+                <Edit2 size={16} color="#1a2d5a" />
+                <Text style={styles.editActionTxt}>Edit</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.deleteAction} onPress={() => handleDelete(sermon)}>
+                <Trash2 size={16} color="#ef4444" />
+                <Text style={styles.deleteActionTxt}>Delete</Text>
+              </TouchableOpacity>
+            </View>
           </View>
         ))}
 
@@ -227,6 +259,9 @@ const styles = StyleSheet.create({
   statusDraftTxt: { color: '#D97706' },
   badgeStatusTxt: { fontSize: 8, fontWeight: '800' },
   
-  editAction: { paddingLeft: 12, paddingVertical: 8, borderLeftWidth: 1, borderLeftColor: '#f1f5f9', alignItems: 'center', justifyContent: 'center', gap: 4 },
-  editActionTxt: { fontSize: 9, fontWeight: '700', color: '#1a2d5a', textTransform: 'uppercase' }
+  actionsContainer: { borderLeftWidth: 1, borderLeftColor: '#f1f5f9' },
+  editAction: { paddingLeft: 12, paddingRight: 10, paddingVertical: 8, alignItems: 'center', justifyContent: 'center', gap: 4, flex: 1 },
+  editActionTxt: { fontSize: 9, fontWeight: '700', color: '#1a2d5a', textTransform: 'uppercase' },
+  deleteAction: { paddingLeft: 12, paddingRight: 10, paddingVertical: 8, alignItems: 'center', justifyContent: 'center', gap: 4, flex: 1, borderTopWidth: 1, borderTopColor: '#f1f5f9' },
+  deleteActionTxt: { fontSize: 9, fontWeight: '700', color: '#ef4444', textTransform: 'uppercase' }
 });
