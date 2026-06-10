@@ -20,6 +20,7 @@ export interface PastorEvent {
   notes:        string;
   section:      'today' | 'upcoming' | 'past';
   travel: {
+    isFirstEvent?: boolean;
     distKm:  number;
     car:     number;             // minutes
     bike:    number;

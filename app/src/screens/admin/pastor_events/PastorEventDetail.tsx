@@ -246,7 +246,9 @@ export const PastorEventDetail = ({ route, navigation }: { route: any; navigatio
         {/* Travel Info Card if present */}
         {event.travel && event.travel.distKm > 0 && (
           <View style={[styles.card, { borderColor: colors.primaryMid }]}>
-            <Text style={styles.cardLabel}>Travel Estimates from previous stop</Text>
+            <Text style={styles.cardLabel}>
+              {event.travel.isFirstEvent ? 'Travel Estimates from Starting Location' : 'Travel Estimates from previous stop'}
+            </Text>
             
             <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: spacing.md }}>
               <Ionicons name="map-outline" size={18} color={colors.textSecondary} />

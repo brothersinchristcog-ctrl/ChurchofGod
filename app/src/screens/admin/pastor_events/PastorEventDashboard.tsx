@@ -181,6 +181,7 @@ export const PastorEventDashboard = ({ navigation }: { navigation: any }) => {
             totalMins += mins;
             
             evt.travel = {
+              isFirstEvent: i === 0,
               distKm: km,
               car: mins,
               bike: Math.round(mins * 2), // Rough approximation
@@ -278,7 +279,9 @@ export const PastorEventDashboard = ({ navigation }: { navigation: any }) => {
 
       {item.travel && item.travel.distKm > 0 && (
         <View style={styles.travelContainer}>
-          <Text style={styles.travelLabel}>Travel from previous stop:</Text>
+          <Text style={styles.travelLabel}>
+            {item.travel.isFirstEvent ? 'Travel from Starting Location:' : 'Travel from previous stop:'}
+          </Text>
           <DistanceBadge distKm={item.travel.distKm} minutes={item.travel.car} />
         </View>
       )}
