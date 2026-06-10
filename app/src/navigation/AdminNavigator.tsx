@@ -39,10 +39,11 @@ import AdminMembers from '../screens/admin/AdminMembers';
 import AdminCelebrations from '../screens/admin/AdminCelebrations';
 import AdminAboutUsEditor from '../screens/admin/AdminAboutUsEditor';
 import AdminContactUsEditor from '../screens/admin/AdminContactUsEditor';
+import PastorEventDashboard from '../screens/admin/pastor_events/PastorEventDashboard';
 
 const { width } = Dimensions.get('window');
 
-export default function AdminNavigator() {
+export default function AdminNavigator({ navigation }: any) {
   const { signOut, user, member, setViewMode } = useAuth();
   const [activeTab, setActiveTab] = useState(0);
   const [tabHistory, setTabHistory] = useState<number[]>([]);
@@ -77,6 +78,7 @@ export default function AdminNavigator() {
     { name: 'Notifications', icon: Bell, component: AdminNotificationBroadcast },
     { name: 'Events', icon: MapPin, component: AdminEventList },
     { name: 'New Event', icon: PlusSquare, component: AdminEventEditor },
+    { name: 'Pastor Event', icon: MapPin, component: PastorEventDashboard },
     { name: 'Prayers', icon: Heart, component: AdminPrayerModeration },
     { name: 'Members', icon: Users, component: AdminMembers },
     { name: 'Celebrations', icon: Gift, component: AdminCelebrations },
@@ -115,7 +117,7 @@ export default function AdminNavigator() {
         </View>
 
         <View style={styles.content}>
-          <ActiveComponent />
+          <ActiveComponent navigation={navigation} />
         </View>
 
         {/* Full-Height Left Side Drawer Overlay */}

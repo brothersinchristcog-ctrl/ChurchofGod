@@ -43,6 +43,10 @@ import MembersScreen from '../screens/MembersScreen';
 import BibleSearchScreen from '../screens/BibleSearchScreen';
 import AboutUsScreen from '../screens/AboutUsScreen';
 import ContactUsScreen from '../screens/ContactUsScreen';
+import PastorEventDetail from '../screens/admin/pastor_events/PastorEventDetail';
+import CreatePastorEvent from '../screens/admin/pastor_events/CreatePastorEvent';
+import PastorEventRoutePlanner from '../screens/admin/pastor_events/PastorEventRoutePlanner';
+import PastorEventMap from '../screens/admin/pastor_events/PastorEventMap';
 
 const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator();
@@ -392,7 +396,13 @@ function Navigation() {
     <Stack.Navigator key={navigationKey} screenOptions={{ headerShown: false }}>
       {user ? (
         showAdminView ? (
-          <Stack.Screen name="AdminRoot" component={AdminNavigator} />
+          <>
+            <Stack.Screen name="AdminRoot" component={AdminNavigator} />
+            <Stack.Screen name="EventDetail" component={PastorEventDetail} />
+            <Stack.Screen name="CreateEvent" component={CreatePastorEvent} />
+            <Stack.Screen name="RoutePlanner" component={PastorEventRoutePlanner} />
+            <Stack.Screen name="EventMap" component={PastorEventMap} />
+          </>
         ) : onboardingComplete ? (
           <>
             <Stack.Screen name="Tabs" component={TabNavigator} />

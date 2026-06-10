@@ -1731,6 +1731,202 @@ spfkUchVp71l4aWpCW50lro=
     }
   }
 
+
+  // --- 📅 Pastor Event Logic ---
+
+  async getPastorEvents(): Promise<any[]> {
+    try {
+      const soql = `SELECT Id, Subject, StartDateTime, EndDateTime, Description, Location, Type, Address__c FROM Event WHERE StartDateTime >= 2026-01-01T00:00:00Z ORDER BY StartDateTime ASC LIMIT 200`;
+      const result = await this.query(soql, true).catch(async () => {
+        // Fallback: Address__c might not exist yet
+        const fallbackSoql = `SELECT Id, Subject, StartDateTime, EndDateTime, Description, Location, Type FROM Event WHERE StartDateTime >= 2026-01-01T00:00:00Z ORDER BY StartDateTime ASC LIMIT 200`;
+        return await this.query(fallbackSoql);
+      });
+      const records = result.records || [];
+
+      // Auto-geocode each event's location in background
+      const GOOGLE_KEY = process.env.EXPO_PUBLIC_GOOGLE_MAPS_KEY || '';
+      const geocode = async (address: string) => {
+        if (!address || !GOOGLE_KEY) return { lat: 0, lng: 0 };
+        
+        const cacheKey = `geocode_${address}`;
+        try {
+          const cached = await AsyncStorage.getItem(cacheKey);
+          if (cached) return JSON.parse(cached);
+        } catch (e) {
+          // ignore cache read error
+        }
+
+        try {
+          const resp = await fetch(
+            `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(address)}&key=${GOOGLE_KEY}`
+          );
+          const data = await resp.json();
+          if (data.status === 'OK' && data.results?.length > 0) {
+            const coords = data.results[0].geometry.location;
+            try {
+              await AsyncStorage.setItem(cacheKey, JSON.stringify(coords));
+            } catch (e) {
+              // ignore cache write error
+            }
+            return coords;
+          }
+        } catch (err) {
+          console.warn('⚠️ [getPastorEvents] Geocode failed for:', address);
+        }
+        return { lat: 0, lng: 0 };
+      };
+
+      const events = await Promise.all(records.map(async (r: any) => {
+        const startDT = r.StartDateTime ? new Date(r.StartDateTime) : null;
+        const endDT = r.EndDateTime ? new Date(r.EndDateTime) : null;
+        
+        const dateStr = startDT ? startDT.toISOString().split('T')[0] : '';
+        let timeStr = '12:00 AM';
+        if (startDT) {
+          let h = startDT.getHours();
+          const m = startDT.getMinutes();
+          const ampm = h >= 12 ? 'PM' : 'AM';
+          h = h % 12;
+          h = h ? h : 12;
+          const mStr = m < 10 ? '0' + m : m;
+          timeStr = `${h}:${mStr} ${ampm}`;
+        }
+        let endTimeStr = '1:00 AM';
+        if (endDT) {
+          let h = endDT.getHours();
+          const m = endDT.getMinutes();
+          const ampm = h >= 12 ? 'PM' : 'AM';
+          h = h % 12;
+          h = h ? h : 12;
+          const mStr = m < 10 ? '0' + m : m;
+          endTimeStr = `${h}:${mStr} ${ampm}`;
+        }
+        const duration = startDT && endDT ? Math.round((endDT.getTime() - startDT.getTime()) / 60000) : 60;
+        let parsedVenue = r.Location || '';
+        let parsedAddress = r.Address__c || r.Location || '';
+        
+        if (!r.Address__c && r.Location && r.Location.includes(' — ')) {
+          const parts = r.Location.split(' — ');
+          parsedVenue = parts[0].trim();
+          parsedAddress = parts.slice(1).join(' — ').trim();
+        }
+
+        const coords = await geocode(parsedAddress || parsedVenue);
+
+        return {
+          id: r.Id,
+          title: r.Subject || 'Pastor Event',
+          type: (r.Type || 'worship').toLowerCase(),
+          date: dateStr,
+          startTime: timeStr,
+          endTime: endTimeStr,
+          durationMins: duration,
+          venue: parsedVenue,
+          address: parsedAddress,
+          lat: coords.lat || 0,
+          lng: coords.lng || 0,
+          description: r.Description || '',
+          notes: '',
+          travel: {
+            distKm: 0,
+            car: 0,
+            bike: 0,
+            walk: 0
+          }
+        };
+      }));
+
+      return events;
+    } catch (e) {
+      console.error('❌ [SalesforceService] getPastorEvents Error:', e);
+      return [];
+    }
+  }
+
+  async createPastorEvent(eventData: any): Promise<boolean> {
+    try {
+      const token = await this.getAccessToken();
+      console.log('📤 [createPastorEvent] Sending payload:', JSON.stringify(eventData, null, 2));
+      const response = await fetch(`${this.instanceUrl}/services/data/v60.0/sobjects/Event`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(eventData)
+      });
+      if (!response.ok) {
+        const data = await response.json();
+        console.error('❌ [SalesforceService] createPastorEvent Error response:', JSON.stringify(data));
+        // Throw the actual Salesforce error so the UI can display it
+        const sfMessage = Array.isArray(data)
+          ? data.map((e: any) => e.message).join('\n')
+          : data?.message || JSON.stringify(data);
+        throw new Error(`Salesforce: ${sfMessage}`);
+      }
+      console.log('✅ [createPastorEvent] Event created successfully');
+      return true;
+    } catch (e: any) {
+      console.error('❌ [SalesforceService] createPastorEvent Error:', e?.message || e);
+      throw e; // Re-throw so caller can show the real message
+    }
+  }
+  async updatePastorEvent(eventId: string, eventData: any): Promise<boolean> {
+    try {
+      const token = await this.getAccessToken();
+      console.log(`📤 [updatePastorEvent] Updating event ${eventId}:`, JSON.stringify(eventData, null, 2));
+      const response = await fetch(`${this.instanceUrl}/services/data/v60.0/sobjects/Event/${eventId}`, {
+        method: 'PATCH',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(eventData)
+      });
+      if (!response.ok) {
+        const data = await response.json();
+        console.error('❌ [SalesforceService] updatePastorEvent Error response:', JSON.stringify(data));
+        const sfMessage = Array.isArray(data)
+          ? data.map((e: any) => e.message).join('\n')
+          : data?.message || JSON.stringify(data);
+        throw new Error(`Salesforce: ${sfMessage}`);
+      }
+      console.log('✅ [updatePastorEvent] Event updated successfully');
+      return true;
+    } catch (e: any) {
+      console.error('❌ [SalesforceService] updatePastorEvent Error:', e?.message || e);
+      throw e;
+    }
+  }
+
+  async deletePastorEvent(eventId: string): Promise<boolean> {
+    try {
+      const token = await this.getAccessToken();
+      console.log(`📤 [deletePastorEvent] Deleting event ${eventId}`);
+      const response = await fetch(`${this.instanceUrl}/services/data/v60.0/sobjects/Event/${eventId}`, {
+        method: 'DELETE',
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      });
+      if (!response.ok) {
+        const data = await response.json();
+        console.error('❌ [SalesforceService] deletePastorEvent Error response:', JSON.stringify(data));
+        const sfMessage = Array.isArray(data)
+          ? data.map((e: any) => e.message).join('\n')
+          : data?.message || JSON.stringify(data);
+        throw new Error(`Salesforce: ${sfMessage}`);
+      }
+      console.log('✅ [deletePastorEvent] Event deleted successfully');
+      return true;
+    } catch (e: any) {
+      console.error('❌ [SalesforceService] deletePastorEvent Error:', e?.message || e);
+      throw e;
+    }
+  }
+
 }
 
 export default new SalesforceService();
+

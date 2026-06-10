@@ -70,3 +70,9 @@ export const Theme = {
 };
 
 export default Theme;
+
+export const colors = { ...Colors, bgPrimary: Colors.surface, bgSecondary: Colors.background, bgTertiary: '#F1F5F9', textPrimary: Colors.text, textTertiary: Colors.textMuted, borderStrong: '#CBD5E1', warningLight: Colors.goldLight, successLight: '#E1F5EE', primaryDark: '#0C447C', primaryMid: '#B5D4F4' };
+export const spacing = Spacing;
+export const shadow = { ...Shadows, card: Shadows.soft };
+export const radius = { sm: 8, md: 12, lg: 16, xl: 24, full: 999 };
+export const typography = { h1: { fontSize: 22, fontWeight: '600' as const }, h2: { fontSize: 18, fontWeight: '600' as const }, h3: { fontSize: 16, fontWeight: '600' as const }, body: { fontSize: 14, fontWeight: '400' as const }, caption: { fontSize: 12, fontWeight: '400' as const }, label: { fontSize: 11, fontWeight: '500' as const } };
