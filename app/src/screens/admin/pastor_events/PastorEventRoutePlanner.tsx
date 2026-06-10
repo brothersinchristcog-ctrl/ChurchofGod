@@ -7,7 +7,8 @@ import {
   StyleSheet,
   SafeAreaView,
   StatusBar,
-  TextInput
+  TextInput,
+  ActivityIndicator
 } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { colors, spacing, radius, typography, shadow } from '../../../theme/Theme';
@@ -281,15 +282,30 @@ export const PastorEventRoutePlanner = ({ route, navigation }: { route: any; nav
           <Text style={{ fontSize: 13, fontWeight: '600', color: colors.textSecondary, marginBottom: 8 }}>
             STARTING FROM
           </Text>
-          <TextInput
-            style={{ backgroundColor: colors.bgSecondary, padding: 12, borderRadius: radius.sm, fontSize: 16, color: colors.textPrimary }}
-            value={currentLocName}
-            onChangeText={setCurrentLocName}
-            onEndEditing={(e) => handleAddressSubmit(e.nativeEvent.text)}
-            placeholder="Type starting address..."
-          />
+          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+            <TextInput
+              style={{ flex: 1, backgroundColor: colors.bgSecondary, padding: 12, borderRadius: radius.sm, fontSize: 16, color: colors.textPrimary }}
+              value={currentLocName}
+              onChangeText={setCurrentLocName}
+              onEndEditing={(e) => handleAddressSubmit(e.nativeEvent.text)}
+              onSubmitEditing={(e) => handleAddressSubmit(e.nativeEvent.text)}
+              placeholder="Type starting address..."
+              returnKeyType="search"
+            />
+            <TouchableOpacity 
+              style={{ marginLeft: 8, backgroundColor: colors.primary, padding: 12, borderRadius: radius.sm }}
+              onPress={() => handleAddressSubmit(currentLocName)}
+              disabled={isGeocoding}
+            >
+              {isGeocoding ? (
+                <ActivityIndicator size="small" color="#FFF" />
+              ) : (
+                <Text style={{ color: '#FFF', fontWeight: 'bold' }}>Update</Text>
+              )}
+            </TouchableOpacity>
+          </View>
           <Text style={{ fontSize: 11, color: colors.textTertiary, marginTop: 4 }}>
-            {isGeocoding ? 'Updating coordinates...' : 'Press Enter on keyboard to lock in your custom start location.'}
+            Press Update or Enter on keyboard to lock in your custom start location and recalculate distances.
           </Text>
         </View>
 
