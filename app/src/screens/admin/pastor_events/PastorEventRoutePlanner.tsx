@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -18,6 +18,7 @@ import { detectConflicts } from '../../../utils/conflicts';
 import { saveStartingLocation, getStartingLocation, formatDuration } from '../../../utils/locationStore';
 import TransportToggle from '../../../components/TransportToggle';
 import RouteChain, { RouteStop, RouteLeg } from '../../../components/RouteChain';
+import { useFocusEffect } from '@react-navigation/native';
 
 export const PastorEventRoutePlanner = ({ route, navigation }: { route: any; navigation: any }) => {
   const { events = [] } = route.params as { events: PastorEvent[] };
@@ -48,24 +49,26 @@ export const PastorEventRoutePlanner = ({ route, navigation }: { route: any; nav
     return [...events].sort((a, b) => timeToMins(a.startTime) - timeToMins(b.startTime));
   }, [events]);
 
-  // Initialize with saved location, then IP-based fallback if none saved
-  useEffect(() => {
-    const fetchInitialLoc = async () => {
-      try {
-        setIsGeocoding(true);
-        const saved = await getStartingLocation();
-        if (saved && saved.lat && saved.lng && saved.name) {
-          setCurrentLoc({ lat: saved.lat, lng: saved.lng });
-          setCurrentLocName(saved.name);
+  // Initialize with saved location every time the screen comes into focus
+  useFocusEffect(
+    useCallback(() => {
+      const fetchInitialLoc = async () => {
+        try {
+          setIsGeocoding(true);
+          const saved = await getStartingLocation();
+          if (saved && saved.lat && saved.lng && saved.name) {
+            setCurrentLoc({ lat: saved.lat, lng: saved.lng });
+            setCurrentLocName(saved.name);
+          }
+        } catch (e) {
+          console.log('Location fetch failed');
+        } finally {
+          setIsGeocoding(false);
         }
-      } catch (e) {
-        console.log('Location fetch failed');
-      } finally {
-        setIsGeocoding(false);
-      }
-    };
-    fetchInitialLoc();
-  }, []);
+      };
+      fetchInitialLoc();
+    }, [])
+  );
 
   // Handle manual starting address change
   const handleAddressSubmit = async (newAddress: string) => {
