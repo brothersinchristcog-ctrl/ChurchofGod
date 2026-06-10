@@ -169,6 +169,8 @@ export const PastorEventDashboard = ({ navigation }: { navigation: any }) => {
                 try {
                   await AsyncStorage.setItem(cacheKey, JSON.stringify({ distance: distanceValue, duration: durationValue }));
                 } catch (e) {}
+              } else {
+                console.warn('⚠️ Google Maps API Error:', distData.status, distData.error_message || '(No error message)');
               }
             }
             
@@ -209,13 +211,14 @@ export const PastorEventDashboard = ({ navigation }: { navigation: any }) => {
         const { lat, lng } = geoData.results[0].geometry.location;
         await saveStartingLocation({ name: newAddress, lat, lng });
         
-        // Force refresh by triggering calcStats via a dummy state change if needed, 
-        // or just let currentLocName trigger it if we added it to deps. But wait, we didn't. 
-        // Let's just fetchEvents() or we can just update the events state implicitly.
+        // Force refresh
         fetchEvents();
+      } else {
+        alert(`Geocoding failed: ${geoData.status} - ${geoData.error_message || 'Check if Geocoding API is enabled.'}`);
       }
     } catch (e) {
-      console.log('Geocoding failed');
+      console.log('Geocoding network failed', e);
+      alert('Network error while geocoding the address.');
     } finally {
       setIsGeocoding(false);
     }
