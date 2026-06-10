@@ -7,6 +7,7 @@ import { TransportMode } from '../types/event';
 const modes: { key: TransportMode; icon: string; label: string }[] = [
   { key: 'car',  icon: 'car-outline',         label: 'Car'  },
   { key: 'bike', icon: 'bicycle-outline',      label: 'Bike' },
+  { key: 'bus',  icon: 'bus-outline',         label: 'Bus'  },
 ];
 
 export const TransportToggle = ({

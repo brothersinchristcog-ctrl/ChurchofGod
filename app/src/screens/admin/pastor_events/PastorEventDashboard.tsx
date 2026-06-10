@@ -183,8 +183,8 @@ export const PastorEventDashboard = ({ navigation }: { navigation: any }) => {
             evt.travel = {
               distKm: km,
               car: mins,
-              bike: 0,
-              walk: 0
+              bike: Math.round(mins * 2), // Rough approximation
+              bus: Math.round(mins * 1.5) // Rough approximation
             };
           }
         }

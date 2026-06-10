@@ -268,13 +268,8 @@ export const PastorEventDetail = ({ route, navigation }: { route: any; navigatio
               </View>
               <View style={{ alignItems: 'center' }}>
                 <Ionicons name="bus" size={24} color={colors.primary} />
-                <Text style={{ fontSize: 13, fontWeight: '700', marginTop: 4, color: colors.textPrimary }}>{Math.round(event.travel.car * 1.5)}m</Text>
+                <Text style={{ fontSize: 13, fontWeight: '700', marginTop: 4, color: colors.textPrimary }}>{event.travel.bus}m</Text>
                 <Text style={{ fontSize: 10, color: colors.textTertiary, textTransform: 'uppercase' }}>Bus</Text>
-              </View>
-              <View style={{ alignItems: 'center' }}>
-                <Ionicons name="walk" size={24} color={colors.primary} />
-                <Text style={{ fontSize: 13, fontWeight: '700', marginTop: 4, color: colors.textPrimary }}>{event.travel.walk}m</Text>
-                <Text style={{ fontSize: 10, color: colors.textTertiary, textTransform: 'uppercase' }}>Walk</Text>
               </View>
             </View>
           </View>
