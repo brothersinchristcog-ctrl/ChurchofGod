@@ -209,8 +209,12 @@ export const PastorEventDetail = ({ route, navigation }: { route: any; navigatio
       
       {/* Top Navigation Bar */}
       <View style={styles.navBar}>
-        <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
-          <Ionicons name="arrow-back" size={24} color={colors.textPrimary} />
+        <TouchableOpacity 
+          style={styles.backButton} 
+          onPress={() => navigation.goBack()}
+          hitSlop={{ top: 20, bottom: 20, left: 20, right: 20 }}
+        >
+          <Ionicons name="arrow-back" size={26} color={colors.textPrimary} />
         </TouchableOpacity>
         <Text style={styles.navTitle} numberOfLines={1}>Event Details</Text>
         <View style={{ width: 40 }} />
@@ -471,7 +475,10 @@ const styles = StyleSheet.create({
     borderBottomColor: colors.border
   },
   backButton: {
-    padding: spacing.xs
+    width: 40,
+    height: 40,
+    justifyContent: 'center',
+    alignItems: 'flex-start'
   },
   navTitle: {
     ...typography.h2,
