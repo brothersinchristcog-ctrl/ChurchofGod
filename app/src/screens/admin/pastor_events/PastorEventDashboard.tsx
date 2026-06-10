@@ -435,6 +435,7 @@ export const PastorEventDashboard = ({ navigation }: { navigation: any }) => {
           renderItem={renderEventCard}
           keyExtractor={item => item.id}
           contentContainerStyle={styles.listContent}
+          extraData={dynamicStats}
           refreshControl={
             <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[colors.primary]} />
           }
