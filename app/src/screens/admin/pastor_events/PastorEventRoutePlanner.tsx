@@ -43,7 +43,9 @@ export const PastorEventRoutePlanner = ({ route, navigation }: { route: any; nav
   };
 
   // Sort events by time to plan the route sequentially
-  const sortedEvents = [...events].sort((a, b) => timeToMins(a.startTime) - timeToMins(b.startTime));
+  const sortedEvents = React.useMemo(() => {
+    return [...events].sort((a, b) => timeToMins(a.startTime) - timeToMins(b.startTime));
+  }, [events]);
 
   // Initialize with saved location, then IP-based fallback if none saved
   useEffect(() => {

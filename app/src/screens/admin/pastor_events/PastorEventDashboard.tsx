@@ -20,7 +20,7 @@ import EventTypeBadge from '../../../components/EventTypeBadge';
 import DistanceBadge from '../../../components/DistanceBadge';
 import { getStartingLocation, saveStartingLocation, formatDuration } from '../../../utils/locationStore';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useRoute } from '@react-navigation/native';
+import { useRoute, useFocusEffect } from '@react-navigation/native';
 
 // No hardcoded events fallbacks
 
@@ -68,16 +68,11 @@ export const PastorEventDashboard = ({ navigation }: { navigation: any }) => {
     }
   };
 
-  useEffect(() => {
-    fetchEvents();
-  }, []);
-
-  useEffect(() => {
-    if (route.params?.refresh) {
+  useFocusEffect(
+    useCallback(() => {
       fetchEvents();
-      navigation.setParams({ refresh: undefined });
-    }
-  }, [route.params?.refresh]);
+    }, [])
+  );
 
   const onRefresh = useCallback(() => {
     setRefreshing(true);
