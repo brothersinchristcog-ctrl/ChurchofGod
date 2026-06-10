@@ -241,7 +241,7 @@ export const PastorEventDashboard = ({ navigation }: { navigation: any }) => {
       <View style={{ gap: 6, marginBottom: 8 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center' }}>
           <Ionicons name="calendar-outline" size={14} color={colors.primary} />
-          <Text style={[styles.timeText, { marginLeft: 6 }]}>{item.date}</Text>
+          <Text style={[styles.timeText, { marginLeft: 6 }]}>{item.date.split('-').reverse().join('-')}</Text>
         </View>
 
         <View style={{ flexDirection: 'row', alignItems: 'center' }}>
