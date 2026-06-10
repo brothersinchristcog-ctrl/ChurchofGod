@@ -57,17 +57,9 @@ export const PastorEventRoutePlanner = ({ route, navigation }: { route: any; nav
         if (saved && saved.lat && saved.lng && saved.name) {
           setCurrentLoc({ lat: saved.lat, lng: saved.lng });
           setCurrentLocName(saved.name);
-          return;
-        }
-
-        const ipResp = await fetch('http://ip-api.com/json/');
-        const ipData = await ipResp.json();
-        if (ipData && ipData.lat && ipData.lon) {
-          setCurrentLoc({ lat: ipData.lat, lng: ipData.lon });
-          setCurrentLocName(ipData.city || 'Guntur, AP');
         }
       } catch (e) {
-        console.log('IP Location failed');
+        console.log('Location fetch failed');
       } finally {
         setIsGeocoding(false);
       }

@@ -16,7 +16,7 @@ export const saveStartingLocation = async (loc: SavedLocation) => {
   }
 };
 
-export const getStartingLocation = async (): Promise<SavedLocation | null> => {
+export const getStartingLocation = async (): Promise<SavedLocation> => {
   try {
     const data = await AsyncStorage.getItem(LOCATION_KEY);
     if (data) {
@@ -25,7 +25,13 @@ export const getStartingLocation = async (): Promise<SavedLocation | null> => {
   } catch (e) {
     console.warn('Failed to read location', e);
   }
-  return null;
+  
+  // Default home location
+  return {
+    name: 'Church of God, Hyderabad',
+    lat: 17.3850,
+    lng: 78.4867
+  };
 };
 
 export const formatDuration = (mins: number) => {

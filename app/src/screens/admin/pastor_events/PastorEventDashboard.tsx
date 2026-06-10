@@ -133,17 +133,9 @@ export const PastorEventDashboard = ({ navigation }: { navigation: any }) => {
             prevLat = saved.lat;
             prevLng = saved.lng;
             setCurrentLocName(saved.name);
-          } else {
-            const ipResp = await fetch('http://ip-api.com/json/');
-            const ipData = await ipResp.json();
-            if (ipData && ipData.lat && ipData.lon) {
-              prevLat = ipData.lat;
-              prevLng = ipData.lon;
-              setCurrentLocName(ipData.city || 'Guntur, AP');
-            }
           }
         } catch (e) {
-          // Fallback to Guntur if location fails
+          // Fallback to defaults
         }
 
         for (let i = 0; i < filteredEvents.length; i++) {
@@ -180,8 +172,18 @@ export const PastorEventDashboard = ({ navigation }: { navigation: any }) => {
               }
             }
             
-            totalKm += distanceValue / 1000;
-            totalMins += Math.round(durationValue / 60);
+            const km = distanceValue / 1000;
+            const mins = Math.round(durationValue / 60);
+            
+            totalKm += km;
+            totalMins += mins;
+            
+            evt.travel = {
+              distKm: km,
+              car: mins,
+              bike: 0,
+              walk: 0
+            };
           }
         }
         setDynamicStats({ km: totalKm, mins: totalMins, loading: false });
@@ -192,7 +194,7 @@ export const PastorEventDashboard = ({ navigation }: { navigation: any }) => {
     };
 
     calcStats();
-  }, [activeTab, selectedDateFilter, events.length]);
+  }, [activeTab, selectedDateFilter, events]);
 
   const handleAddressSubmit = async (newAddress: string) => {
     if (!newAddress.trim()) return;
@@ -371,13 +373,28 @@ export const PastorEventDashboard = ({ navigation }: { navigation: any }) => {
         <Text style={{ fontSize: 12, fontWeight: '600', color: colors.textSecondary, marginBottom: 4 }}>
           STARTING FROM
         </Text>
-        <TextInput
-          style={{ backgroundColor: colors.bgSecondary, padding: 8, borderRadius: radius.sm, fontSize: 14, color: colors.textPrimary }}
-          value={currentLocName}
-          onChangeText={setCurrentLocName}
-          onEndEditing={(e) => handleAddressSubmit(e.nativeEvent.text)}
-          placeholder="Type starting address..."
-        />
+        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+          <TextInput
+            style={{ flex: 1, backgroundColor: colors.bgSecondary, padding: 8, borderRadius: radius.sm, fontSize: 14, color: colors.textPrimary }}
+            value={currentLocName}
+            onChangeText={setCurrentLocName}
+            onEndEditing={(e) => handleAddressSubmit(e.nativeEvent.text)}
+            onSubmitEditing={(e) => handleAddressSubmit(e.nativeEvent.text)}
+            placeholder="Type starting address..."
+            returnKeyType="search"
+          />
+          <TouchableOpacity 
+            style={{ marginLeft: 8, backgroundColor: colors.primary, padding: 8, borderRadius: radius.sm }}
+            onPress={() => handleAddressSubmit(currentLocName)}
+            disabled={isGeocoding}
+          >
+            {isGeocoding ? (
+              <ActivityIndicator size="small" color="#FFF" />
+            ) : (
+              <Text style={{ color: '#FFF', fontWeight: 'bold', fontSize: 12 }}>Update</Text>
+            )}
+          </TouchableOpacity>
+        </View>
         <Text style={{ fontSize: 10, color: colors.textTertiary, marginTop: 4 }}>
           {isGeocoding ? 'Updating...' : 'Press Enter to update distances.'}
         </Text>
