@@ -617,8 +617,9 @@ const styles = StyleSheet.create({
     alignItems: 'center'
   },
   travelLabel: {
-    fontSize: 11,
-    color: colors.textSecondary
+    fontSize: 12,
+    fontWeight: '700',
+    color: colors.primary
   },
   loadingContainer: {
     flex: 1,
