@@ -14,6 +14,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ChevronLeft, Search, BookOpen, CheckSquare, Square, BookMarked, Filter, ChevronDown, X } from 'lucide-react-native';
 import { useTheme } from '../context/ThemeContext';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const LOCAL_TELUGU_BIBLE: any = require('../../assets/telugu_bible.json');
 
@@ -174,10 +175,43 @@ export default function BibleSearchScreen({ route, navigation }: any) {
       .join('\n\n');
   };
 
-  const saveToSermonNotes = () => {
+  const saveToSermonNotes = async () => {
     const content = getSelectedVersesText();
     if (!content) return;
-    navigation.navigate('MemberNotes', { prefillTitle: 'Bible Study Notes', prefillContent: content });
+    
+    try {
+      const dateStr = new Date().toLocaleDateString('en-US', {
+        month: 'long',
+        day: 'numeric',
+        year: 'numeric'
+      });
+      const timestampStr = new Date().toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+
+      const newNote = {
+        id: Date.now().toString(),
+        title: dateStr,
+        content: content,
+        timestamp: timestampStr
+      };
+
+      const stored = await AsyncStorage.getItem('@SermonPersonalNotes');
+      const existingNotes = stored ? JSON.parse(stored) : [];
+      const updatedNotes = [newNote, ...existingNotes];
+      await AsyncStorage.setItem('@SermonPersonalNotes', JSON.stringify(updatedNotes));
+
+      setSelectedVerses(new Set()); // clear selection
+      navigation.navigate('MemberNotes', { refreshId: Date.now() });
+    } catch (error) {
+      console.error('Error saving note directly:', error);
+      // Fallback
+      navigation.navigate('MemberNotes', { prefillTitle: dateStr, prefillContent: content });
+    }
   };
 
   useEffect(() => {

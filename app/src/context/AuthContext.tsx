@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import auth, { FirebaseAuthTypes } from '@react-native-firebase/auth';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import { SalesforceMember } from '../services/SalesforceService';
 
@@ -29,6 +30,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   useEffect(() => {
+    // Attempt to load cached member instantly on boot
+    const loadCachedMember = async () => {
+      try {
+        const cachedStr = await AsyncStorage.getItem('@cached_member');
+        if (cachedStr) {
+          const cachedMember = JSON.parse(cachedStr);
+          console.log('👤 [Auth] Loaded cached member:', cachedMember.name);
+          setMember(cachedMember);
+        }
+      } catch (e) {
+        // Ignore cache errors
+      }
+    };
+    loadCachedMember();
+
     // Handle user state changes
     const subscriber = auth().onAuthStateChanged(async (userState) => {
       setUser(userState);
@@ -48,6 +64,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             if (check?.exists && check.member) {
               console.log('👤 [Auth] Member Profile Loaded:', check.member.name);
               setMember(check.member);
+              AsyncStorage.setItem('@cached_member', JSON.stringify(check.member));
             } else if (check === null) {
               console.warn('⚠️ [Auth] Salesforce check timed out — proceeding without profile.');
             }
@@ -58,6 +75,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
       } else {
         setMember(null);
+        AsyncStorage.removeItem('@cached_member');
       }
       
       // Always clear loading — never block the user
@@ -77,6 +95,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const signOut = async () => {
     try {
+      await AsyncStorage.removeItem('@cached_member');
       await auth().signOut();
     } catch (error) {
       console.error('Sign out error:', error);

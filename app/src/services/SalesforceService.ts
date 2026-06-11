@@ -1155,16 +1155,23 @@ spfkUchVp71l4aWpCW50lro=
 
   async getDailyPromise(): Promise<DailyPromise | null> {
     try {
-      const soql = `SELECT Id, Promises__c, Promise_text_telugu__c, Date__c, Devotional_Note__c, Pastor_Name__c, YouTube_ID__c, Name, Video_Title__c, Duration__c, Verse_Reference_En__c, Verse_Reference_Te__c, Banner_Image_URL__c FROM Daily_Promises__c WHERE Date__c = TODAY LIMIT 1`;
+      const queries = [
+        `SELECT Id, Promises__c, Promise_text_telugu__c, Date__c, Devotional_Note__c, Pastor_Name__c, YouTube_ID__c, Name, Video_Title__c, Duration__c, Verse_Reference_En__c, Verse_Reference_Te__c, Banner_Image_URL__c FROM Daily_Promises__c WHERE Date__c = TODAY LIMIT 1`,
+        `SELECT Id, Promises__c, Promise_text_telugu__c, Date__c, Devotional_Note__c, Pastor_Name__c, YouTube_ID__c, Name, Video_Title__c, Duration__c, Banner_Image_URL__c FROM Daily_Promises__c WHERE Date__c = TODAY LIMIT 1`,
+        `SELECT Id, Promises__c, Promise_text_telugu__c, Date__c, Devotional_Note__c, Pastor_Name__c, YouTube_ID__c, Name, Video_Title__c, Duration__c FROM Daily_Promises__c WHERE Date__c = TODAY LIMIT 1`
+      ];
+
       let result;
-      try {
-        result = await this.query(soql, true);
-      } catch (e) {
-        const fallbackSoql = `SELECT Id, Promises__c, Promise_text_telugu__c, Date__c, Devotional_Note__c, Pastor_Name__c, YouTube_ID__c, Name, Video_Title__c, Duration__c FROM Daily_Promises__c WHERE Date__c = TODAY LIMIT 1`;
-        result = await this.query(fallbackSoql);
+      for (const soql of queries) {
+        try {
+          result = await this.query(soql, true);
+          break; // Success!
+        } catch (e) {
+          // Ignore and try next fallback query
+        }
       }
 
-      if (result.totalSize > 0) {
+      if (result && result.totalSize > 0) {
         const rec = result.records[0];
         return {
           id: rec.Id,
@@ -1196,23 +1203,40 @@ spfkUchVp71l4aWpCW50lro=
   async getDailyPromisesArchive(limit = 30): Promise<DailyPromise[]> {
     try {
       const today = new Date().toISOString().split('T')[0];
-      const soql = `SELECT Id, Promises__c, Promise_text_telugu__c, Date__c, Devotional_Note__c, Pastor_Name__c, YouTube_ID__c, Name, Video_Title__c, Duration__c, Verse_Reference_En__c, Verse_Reference_Te__c, Banner_Image_URL__c FROM Daily_Promises__c WHERE Date__c <= ${today} ORDER BY Date__c DESC LIMIT ${limit}`;
-      const result = await this.query(soql, true);
-      return result.records.map((rec: any) => ({
-        id: rec.Id,
-        verse: rec.Promises__c,
-        verseTelugu: rec.Promise_text_telugu__c,
-        date: rec.Date__c,
-        devotionalNote: rec.Devotional_Note__c,
-        pastor: rec.Pastor_Name__c,
-        youtubeId: this.extractYoutubeId(rec.YouTube_ID__c),
-        verseReference: rec.Name,
-        verseReferenceEn: rec.Verse_Reference_En__c || (rec.Name && !rec.Name.startsWith('DP') ? rec.Name : null),
-        verseReferenceTe: rec.Verse_Reference_Te__c,
-        videoTitle: rec.Video_Title__c,
-        duration: rec.Duration__c,
-        imageUrl: rec.Banner_Image_URL__c
-      }));
+      const queries = [
+        `SELECT Id, Promises__c, Promise_text_telugu__c, Date__c, Devotional_Note__c, Pastor_Name__c, YouTube_ID__c, Name, Video_Title__c, Duration__c, Verse_Reference_En__c, Verse_Reference_Te__c, Banner_Image_URL__c FROM Daily_Promises__c WHERE Date__c <= ${today} ORDER BY Date__c DESC LIMIT ${limit}`,
+        `SELECT Id, Promises__c, Promise_text_telugu__c, Date__c, Devotional_Note__c, Pastor_Name__c, YouTube_ID__c, Name, Video_Title__c, Duration__c, Banner_Image_URL__c FROM Daily_Promises__c WHERE Date__c <= ${today} ORDER BY Date__c DESC LIMIT ${limit}`,
+        `SELECT Id, Promises__c, Promise_text_telugu__c, Date__c, Devotional_Note__c, Pastor_Name__c, YouTube_ID__c, Name, Video_Title__c, Duration__c FROM Daily_Promises__c WHERE Date__c <= ${today} ORDER BY Date__c DESC LIMIT ${limit}`
+      ];
+
+      let result;
+      for (const soql of queries) {
+        try {
+          result = await this.query(soql, true);
+          break; // Success!
+        } catch (e) {
+          // Ignore and try next fallback query
+        }
+      }
+
+      if (result && result.totalSize > 0) {
+        return result.records.map((rec: any) => ({
+          id: rec.Id,
+          verse: rec.Promises__c,
+          verseTelugu: rec.Promise_text_telugu__c,
+          date: rec.Date__c,
+          devotionalNote: rec.Devotional_Note__c,
+          pastor: rec.Pastor_Name__c,
+          youtubeId: this.extractYoutubeId(rec.YouTube_ID__c),
+          verseReference: rec.Name,
+          verseReferenceEn: rec.Verse_Reference_En__c || (rec.Name && !rec.Name.startsWith('DP') ? rec.Name : null),
+          verseReferenceTe: rec.Verse_Reference_Te__c,
+          videoTitle: rec.Video_Title__c,
+          duration: rec.Duration__c,
+          imageUrl: rec.Banner_Image_URL__c
+        }));
+      }
+      return [];
     } catch (error) {
       console.error('❌ [SalesforceService] getDailyPromisesArchive Error:', error);
       return [];
@@ -1498,7 +1522,7 @@ spfkUchVp71l4aWpCW50lro=
       const isUpdate = !!details.id;
       const url = `${this.instanceUrl}/services/data/v60.0/sobjects/Daily_Promises__c${isUpdate ? '/' + details.id : ''}`;
 
-      const body = {
+      let currentBody = {
         Date__c: details.date,
         Promises__c: details.verse,
         Verse_Reference_En__c: details.verseReferenceEn,
@@ -1515,38 +1539,54 @@ spfkUchVp71l4aWpCW50lro=
 
       console.log(`🔗 [SalesforceService] ${isUpdate ? 'PATCH' : 'POST'} to ${url}`);
 
-      let resp = await fetch(url, {
-        method: isUpdate ? 'PATCH' : 'POST',
-        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify(body)
-      });
+      let retryCount = 0;
+      let success = false;
+      let resp;
 
-      if (!resp.ok) {
+      while (retryCount < 5 && !success) {
+        resp = await fetch(url, {
+          method: isUpdate ? 'PATCH' : 'POST',
+          headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify(currentBody)
+        });
+
+        if (resp.ok) {
+          success = true;
+          break;
+        }
+
         const errData = await resp.json();
         const errorMessage = errData[0]?.message || '';
         
         if (errorMessage.includes('No such column') || errorMessage.includes('INVALID_FIELD')) {
-          console.warn('⚠️ [SalesforceService] New fields missing, retrying with legacy payload...');
-          const legacyBody = {
-            Date__c: details.date,
-            Promises__c: details.verse,
-            Promise_text_telugu__c: details.verseTelugu,
-            Devotional_Note__c: details.devotionalNote,
-            Pastor_Name__c: details.pastor,
-            YouTube_ID__c: details.youtubeId,
-            Video_Title__c: details.videoTitle,
-            Duration__c: details.duration,
-            Status__c: details.status || 'Published'
-          };
-          resp = await fetch(url, {
-            method: isUpdate ? 'PATCH' : 'POST',
-            headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-            body: JSON.stringify(legacyBody)
-          });
-          if (!resp.ok) throw new Error('Legacy save also failed');
+          const match = errorMessage.match(/'([^']+)'/);
+          if (match && match[1]) {
+            const missingField = match[1];
+            console.warn(`⚠️ [SalesforceService] Field missing in Salesforce: ${missingField}, retrying without it...`);
+            delete (currentBody as any)[missingField];
+            retryCount++;
+          } else {
+            console.warn('⚠️ [SalesforceService] New fields missing, retrying with legacy payload...');
+            currentBody = {
+              Date__c: details.date,
+              Promises__c: details.verse,
+              Promise_text_telugu__c: details.verseTelugu,
+              Devotional_Note__c: details.devotionalNote,
+              Pastor_Name__c: details.pastor,
+              YouTube_ID__c: details.youtubeId,
+              Video_Title__c: details.videoTitle,
+              Duration__c: details.duration,
+              Status__c: details.status || 'Published'
+            } as any;
+            retryCount++;
+          }
         } else {
           throw new Error(errorMessage || 'Failed to save promise');
         }
+      }
+
+      if (!success) {
+        throw new Error('Failed to save promise after multiple retries.');
       }
 
       console.log(`✅ [SalesforceService] Promise ${isUpdate ? 'Updated' : 'Created'} Successfully.`);

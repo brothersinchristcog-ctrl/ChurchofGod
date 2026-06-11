@@ -62,7 +62,7 @@ export default function MemberNotesScreen({ navigation, route }: any) {
 
   useEffect(() => {
     loadNotes();
-  }, []);
+  }, [route?.params?.refreshId]);
 
   // Auto-open create modal when pre-fill params are passed (e.g. from Bible Search)
   useEffect(() => {
